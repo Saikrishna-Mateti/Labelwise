@@ -1,0 +1,231 @@
+{
+  "8901719101038": {
+    "additives_tags": [
+      "en:e223",
+      "en:e322",
+      "en:e471",
+      "en:e481",
+      "en:e500",
+      "en:e500ii",
+      "en:e503",
+      "en:e503ii"
+    ],
+    "brands": "Parle",
+    "categories_tags": [
+      "en:snacks",
+      "en:sweet-snacks",
+      "en:biscuits-and-cakes",
+      "en:biscuits-and-crackers",
+      "en:biscuits"
+    ],
+    "code": "8901719101038",
+    "ingredients_text": "Refined Wheat Flour (Maida), Sugar, RBD Palm Oil, Invert Sugar Syrup, Raising Agents [INS 503(ii), INS 500(ii)], Iodised Salt, Milk Solids, Emulsifier [INS 322 or INS 471 & INS 481], Artificial Flavoring Substances (Vanilla), Flour Treatment Agent [INS 223].",
+    "ingredients_text_en": "Refined Wheat Flour (Maida), Sugar, RBD Palm Oil, Invert Sugar Syrup, Raising Agents [INS 503(ii), INS 500(ii)], Iodised Salt, Milk Solids, Emulsifier [INS 322 or INS 471 & INS 481], Artificial Flavoring Substances (Vanilla), Flour Treatment Agent [INS 223].",
+    "nova_group": 4,
+    "nova_groups_markers": {
+      "3": [
+        ["ingredients", "en:salt"],
+        ["ingredients", "en:sugar"],
+        ["categories", "en:sweet-snacks"]
+      ],
+      "4": [
+        ["additives", "en:e322"],
+        ["additives", "en:e471"],
+        ["additives", "en:e481"],
+        ["ingredients", "en:flavouring"],
+        ["ingredients", "en:invert-sugar"]
+      ]
+    },
+    "nutriments": {
+      "added-sugars_100g": 24.97,
+      "carbohydrates_100g": 78.0141843971631,
+      "energy-kcal_100g": 460.992907801418,
+      "energy-kj_100g": 1930.08865248227,
+      "energy_100g": 1930.08865248227,
+      "fat_100g": 12.4113475177305,
+      "fiber_100g": 1.77304964539007,
+      "proteins_100g": 7.09219858156028,
+      "salt_100g": 0.75354609929078,
+      "saturated-fat_100g": 6.20567375886525,
+      "sodium_100g": 0.301418439716312,
+      "sugars_100g": 24.822695035461
+    },
+    "nutriscore_grade": "e",
+    "nutriscore_score": 21,
+    "nutrition_data": "on",
+    "nutrition_data_per": "100g",
+    "nutrition_data_prepared_per": "100g",
+    "product_name": "Parle - G"
+  },
+  "8901491101837": {
+    "additives_tags": ["en:e551", "en:e627", "en:e631"],
+    "brands": "Lay's",
+    "categories_tags": [
+      "en:plant-based-foods-and-beverages",
+      "en:plant-based-foods",
+      "en:snacks",
+      "en:cereals-and-potatoes",
+      "en:salty-snacks",
+      "en:appetizers",
+      "en:chips-and-fries",
+      "en:potatoes-and-their-products",
+      "en:crisps",
+      "en:salty-snacks-made-from-potato",
+      "en:potato-crisps"
+    ],
+    "code": "8901491101837",
+    "ingredients_text": "Potato, Edible Vegetable Oil\n\n(Palmolein Oil), &quot;Seasoning (Maltodextrin, lodised Salt, &quot;Spices & Condiments, Sugar, Flavour (Natural and Nature Identical Flavouring Substances), Anticaking Agent (551), Flavour Enhancers (627, 631), Edible Vegetable Oil (Palm)).\n\n&quot;As flavouring agent. &quot;Contains Onion & Garlic",
+    "ingredients_text_en": "Potato, Edible Vegetable Oil\n\n(Palmolein Oil), &quot;Seasoning (Maltodextrin, lodised Salt, &quot;Spices & Condiments, Sugar, Flavour (Natural and Nature Identical Flavouring Substances), Anticaking Agent (551), Flavour Enhancers (627, 631), Edible Vegetable Oil (Palm)).\n\n&quot;As flavouring agent. &quot;Contains Onion & Garlic",
+    "nova_group": 4,
+    "nova_groups_markers": {
+      "3": [
+        ["categories", "en:salty-snacks"],
+        ["ingredients", "en:anti-caking-agent"],
+        ["ingredients", "en:salt"],
+        ["ingredients", "en:sugar"],
+        ["ingredients", "en:vegetable-oil"]
+      ],
+      "4": [
+        ["additives", "en:e551"],
+        ["additives", "en:e627"],
+        ["additives", "en:e631"],
+        ["ingredients", "en:flavour-enhancer"],
+        ["ingredients", "en:flavouring"],
+        ["ingredients", "en:maltodextrin"]
+      ]
+    },
+    "nutriments": {
+      "added-sugars_100g": 0.51,
+      "carbohydrates_100g": 51.7,
+      "energy-kcal_100g": 554,
+      "energy-kj_100g": 2311.4,
+      "energy_100g": 2311.4,
+      "fat_100g": 35.5,
+      "fiber_100g": 0,
+      "proteins_100g": 7,
+      "salt_100g": 0.51,
+      "saturated-fat_100g": 14,
+      "sodium_100g": 0.204,
+      "sugars_100g": 2.6,
+      "trans-fat_100g": 0.1
+    },
+    "nutriscore_grade": "d",
+    "nutriscore_score": 18,
+    "nutrition_data": "on",
+    "nutrition_data_prepared_per": "100g",
+    "product_name": "Lays Classics Salted 20rs"
+  },
+  "8902080104581": {
+    "additives_tags": ["en:e150d", "en:e338", "en:e436"],
+    "brands": "Pepsi Cola",
+    "categories_tags": [
+      "en:beverages-and-beverages-preparations",
+      "en:beverages",
+      "en:non-alcoholic-beverages",
+      "en:carbonated-drinks",
+      "en:soft-drinks",
+      "en:sodas",
+      "en:colas",
+      "en:carbonated-soft-drinks-without-fruit-juice",
+      "en:cola-with-sugar",
+      "en:sweetened-beverages"
+    ],
+    "code": "8902080104581",
+    "ingredients_text": "CARBONATED WATER, SUGAR, COLOUR (150d), ACIDITY REGULATOR (338), CAFFEINE (10 mg/100g), FLAVOUR (NATURAL FLAVOURING SUBSTANCES), STABILIZER (436). CONTAINS CAFFEINE",
+    "ingredients_text_en": "CARBONATED WATER, SUGAR, COLOUR (150d), ACIDITY REGULATOR (338), CAFFEINE (10 mg/100g), FLAVOUR (NATURAL FLAVOURING SUBSTANCES), STABILIZER (436). CONTAINS CAFFEINE",
+    "nova_group": 4,
+    "nova_groups_markers": {
+      "3": [
+        ["categories", "en:sodas"],
+        ["ingredients", "en:sugar"]
+      ],
+      "4": [
+        ["additives", "en:e150d"],
+        ["additives", "en:e436"],
+        ["ingredients", "en:colour"],
+        ["ingredients", "en:flavouring"]
+      ]
+    },
+    "nutriments": {
+      "added-sugars_100g": 10.9,
+      "carbohydrates_100g": 10.9,
+      "energy-kcal_100g": 43,
+      "energy-kj_100g": 185.3,
+      "energy_100g": 185.3,
+      "fat_100g": 0,
+      "proteins_100g": 0,
+      "salt_100g": 0.0075,
+      "saturated-fat_100g": 0,
+      "sodium_100g": 0.003,
+      "sugars_100g": 10.9,
+      "trans-fat_100g": 0
+    },
+    "nutriscore_grade": "e",
+    "nutriscore_score": 12,
+    "nutrition_data": "on",
+    "nutrition_data_prepared_per": "100g",
+    "product_name": "Pepsi"
+  },
+  "8901058000290": {
+    "additives_tags": [
+      "en:e150d",
+      "en:e330",
+      "en:e412",
+      "en:e451",
+      "en:e500",
+      "en:e501",
+      "en:e508",
+      "en:e635"
+    ],
+    "brands": "Nestlé",
+    "categories_tags": [
+      "en:plant-based-foods-and-beverages",
+      "en:plant-based-foods",
+      "en:dried-products",
+      "en:dried-products-to-be-rehydrated",
+      "en:pastas",
+      "en:noodles",
+      "en:instant-noodles",
+      "en:Instant Noodles with Seasoning"
+    ],
+    "code": "8901058000290",
+    "ingredients_text": "NOODLES: Refined wheat flour (Maida), Palm oil, lodized salt, Wheat gluten, Thickeners (508 & 412). Acidity regulators (501(i) & 500(i)) and Humectant (451(i)). MASALA TASTEMAKER®: Mixed spices (25.6%) (Onion powder, Coriander powder, Turmeric powder, Red chilli powder, Garlic powder, Cumin powder, Aniseed powder, Ginger powder, Fenugreek powder, Black pepper powder, Clove powder, Green cardamom powder & Nutmeg powder), Refined wheat flour (Maida), Hydrolysed groundnut protein, Sugar, Palm oil, Starch, lodized salt, Thickener (508), Flavour enhancer (635), Toasted onion flakes, Acidity regulator (330). Colour (150d), Mineral and Wheat gluten. Allergen Note: Contains Wheat & Nut. May contain Milk, Mustard, Oats And Soy.",
+    "ingredients_text_en": "NOODLES: Refined wheat flour (Maida), Palm oil, lodized salt, Wheat gluten, Thickeners (508 & 412). Acidity regulators (501(i) & 500(i)) and Humectant (451(i)). MASALA TASTEMAKER®: Mixed spices (25.6%) (Onion powder, Coriander powder, Turmeric powder, Red chilli powder, Garlic powder, Cumin powder, Aniseed powder, Ginger powder, Fenugreek powder, Black pepper powder, Clove powder, Green cardamom powder & Nutmeg powder), Refined wheat flour (Maida), Hydrolysed groundnut protein, Sugar, Palm oil, Starch, lodized salt, Thickener (508), Flavour enhancer (635), Toasted onion flakes, Acidity regulator (330). Colour (150d), Mineral and Wheat gluten. Allergen Note: Contains Wheat & Nut. May contain Milk, Mustard, Oats And Soy.",
+    "nova_group": 4,
+    "nova_groups_markers": {
+      "3": [
+        ["ingredients", "en:starch"],
+        ["ingredients", "en:sugar"]
+      ],
+      "4": [
+        ["additives", "en:e150d"],
+        ["additives", "en:e412"],
+        ["additives", "en:e451"],
+        ["additives", "en:e635"],
+        ["ingredients", "en:colour"],
+        ["ingredients", "en:gluten"]
+      ]
+    },
+    "nutriments": {
+      "added-sugars_prepared_100g": 1.3,
+      "carbohydrates_prepared_100g": 59.6,
+      "energy-kcal_prepared_100g": 384,
+      "energy-kj_prepared_100g": 1615.1,
+      "energy_prepared_100g": 1615.1,
+      "fat_prepared_100g": 12.5,
+      "iron_prepared_100g": 6.9,
+      "proteins_prepared_100g": 8.2,
+      "salt_prepared_100g": 2.57075,
+      "saturated-fat_prepared_100g": 8.2,
+      "sodium_prepared_100g": 1.0283,
+      "sugars_prepared_100g": 1.8,
+      "trans-fat_prepared_100g": 0.13
+    },
+    "nutriscore_grade": "e",
+    "nutriscore_score": 24,
+    "nutrition_data_per": "100g",
+    "nutrition_data_prepared": "on",
+    "nutrition_data_prepared_per": "100g",
+    "product_name": "maggi"
+  }
+}

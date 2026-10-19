@@ -30,6 +30,14 @@ npm test
 npm run format   # rewrite files with Prettier
 ```
 
+## Score a product from the command line
+
+```sh
+npm run score -- 8901719101038
+```
+
+Fetches the product from Open Food Facts and prints the Indian Nutrition Rating (based on the FSSAI **draft** proposal), Nutri-Score and NOVA with reasons. Sources and interpretation decisions: `docs/sources/README.md`.
+
 ## Bundle identifier
 
 `com.labelwise.app` in `app.json` is a placeholder. Change it to a reverse-domain ID you own before any App Store submission.
@@ -46,9 +54,10 @@ npm run format   # rewrite files with Prettier
 - `eslint`, `eslint-config-expo`: linting.
 - `prettier`, `eslint-config-prettier`, `eslint-plugin-prettier`: formatting, enforced through lint.
 - `typescript`, `@types/react`: strict type checking.
+- `tsx`: runs the TypeScript CLI in `tools/` under Node.
 
 ## Data and licence
 
 Product data comes from [Open Food Facts](https://world.openfoodfacts.org) and is available under the [Open Database License (ODbL)](https://opendatacommons.org/licenses/odbl/1-0/). Labelwise is not affiliated with or endorsed by Open Food Facts or FSSAI.
 
-App code is MIT licensed (see `LICENSE`). OFF data and fixtures derived from it remain under ODbL.
+App code is MIT licensed (see `LICENSE`). OFF data and files derived from it remain under ODbL: test fixtures in `src/scoring/__tests__/fixtures/` and the additive names in `src/data/off-additives.json` (from the OFF additives taxonomy).
