@@ -54,12 +54,14 @@ Every scoring method implements one interface, `ScoringMethod`, so methods can b
 ## 4. Milestones
 
 ### Milestone 0: Project setup
+
 - Create the Expo TypeScript project, configure ESLint, Prettier, Jest, strict TypeScript.
 - Write `CLAUDE.md` (conventions: scoring stays pure, never invent thresholds, run typecheck + lint + tests before saying "done", small commits) and a `README.md` with exact commands to run on the simulator and on a device (`npx expo run:ios`, `npx expo run:ios --device`).
 - Use bundle identifier `com.labelwise.app` as a placeholder and tell me it needs changing before App Store submission.
 - Done when: the app launches in the simulator showing a placeholder home screen, and `npm test`, `npm run lint` and `npm run typecheck` pass.
 
 ### Milestone 1: Scoring engine (no UI)
+
 Implement and test these in `src/scoring/`:
 
 1. **INR.** Fetch the draft regulation from `https://comments.fssai.gov.in/Bestviewwl.aspx?NOTIFICATION_ID=4123` (Schedule III, tables for baseline reference values and the points-to-stars conversion for solid and liquid foods). Implement it **exactly as written**: the four risk factors (energy, total sugars, saturated fat, sodium, per 100 g or 100 ml), the positive components (fruit and vegetable content, nuts/legumes/millets, fibre, protein), separate solid and liquid tables, and the stars mapping. Confirm the units used in the draft (kJ vs kcal, sodium in mg vs g) and convert OFF values correctly. **If you cannot access or parse the tables, stop and ask me to supply the PDF. Do not reconstruct thresholds from memory.** Where an input is missing (for example fruit/vegetable percentage), say so in the result instead of silently assuming zero, and mark the score as "estimated".
@@ -72,6 +74,7 @@ Output type for every method: `{ method, value, band, source, missingInputs, rea
 Done when: all scoring tests pass, and a small CLI script (`npm run score -- <barcode>`) fetches one OFF product and prints all scores and reasons.
 
 ### Milestone 2: Data layer
+
 - `offClient.ts`: call `GET https://world.openfoodfacts.org/api/v2/product/{barcode}?fields=...` requesting only the fields you need. Always send a custom `User-Agent` such as `Labelwise/0.1 (contact: <my email placeholder>)`. Respect OFF rate limits, handle `status: 0` (not found), timeouts and offline.
 - Normalize UPC-A and EAN-8 inputs sensibly before lookup. Handle the occasional malformed or non-13-digit code without crashing.
 - `db.ts`: SQLite tables for scan history, cached OFF products (with timestamp and a sensible refresh policy), and **user-entered nutrition data in a separate table**.
@@ -79,24 +82,29 @@ Done when: all scoring tests pass, and a small CLI script (`npm run score -- <ba
 - Done when: unit tests with a mocked OFF client cover found, not found, partial data, offline with cache, and user override.
 
 ### Milestone 3: Core screens
+
 1. **Scan screen:** camera barcode scanner, plus a visible "type a barcode" field (essential for simulator testing). Handle camera permission denied with a clear message. Haptic feedback on a successful scan.
 2. **Product screen:** name, brand, image if available, the primary score (INR, with the 0.5 to 5 star display), Nutri-Score as a secondary badge, NOVA badge (labelled "estimated" when it is), the reasons list, and a collapsible nutrition table per 100 g. Show the vegetarian/non-vegetarian label if OFF provides it. Show **"Data © Open Food Facts contributors (ODbL)"** with a link to the product's OFF page on this screen.
 3. **Not-enough-data screen:** explain plainly what is missing and offer "Add nutrition info" (goes to manual entry). Product not found at all gets its own wording.
 4. **History screen:** past scans from SQLite, tap to reopen, swipe to delete.
 5. **Settings/About:** choose primary score method (INR default, Nutri-Score alternative), attribution and licence text, disclaimers (see section 5).
+
 - Done when: I can type a barcode in the simulator and reach a product, a not-enough-data screen and history, and I can scan a real barcode on my iPhone.
 
 ### Milestone 4: Manual entry
+
 - Form for the nutrition values per 100 g (energy, sugars, saturated fat, salt or sodium, fibre, protein, and optionally fruit/veg %), unit hints, ingredient text, and product type (solid or liquid). Validate ranges.
 - Saving stores to the user-entered table and immediately recomputes the score.
 - Done when: an empty product becomes scorable after I enter its values, and the product screen shows which values are mine.
 
 ### Milestone 5: Label photo OCR (prefill only)
+
 - Let me photograph a nutrition table, run **on-device** text recognition (ML Kit based library; check current maintenance), parse the numbers into the manual-entry form as suggestions, and **always require me to review and confirm** before saving. Never auto-save OCR output. Photos stay on the device.
 - Handle Indian label formats (per 100 g, per serving, "Energy (kcal)", salt vs sodium). If you cannot reliably parse something, leave the field empty rather than guessing.
 - Done when: a photo of a typical Indian nutrition table prefills at least energy, sugars, fat, saturated fat, protein and salt in most clear photos, with the review step enforced.
 
 ### Phase 2 (do NOT start unless I ask)
+
 Additive flags by INS number (only with a sourced data file), contributing user data back to OFF, a backend, Android, accounts, healthier-alternative suggestions.
 
 ## 5. Legal, safety and copy rules
