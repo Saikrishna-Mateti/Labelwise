@@ -1,4 +1,9 @@
-import type { NutritionPer100, ProductType, ScoringInput } from '../scoring/types';
+import type {
+  NutriscoreComponent,
+  NutritionPer100,
+  ProductType,
+  ScoringInput,
+} from '../scoring/types';
 import offAdditives from './off-additives.json';
 
 /** Fields requested from the OFF API v2. */
@@ -15,6 +20,10 @@ export const OFF_FIELDS = [
   'ingredients_text_en',
   'additives_tags',
   'nova_groups_markers',
+  'product_type',
+  'labels_tags',
+  'image_front_small_url',
+  'nutriscore_data',
 ] as const;
 
 export interface OffProduct {
@@ -31,6 +40,24 @@ export interface OffProduct {
   additives_tags?: string[];
   /** NOVA group -> [marker type, tag], e.g. { "4": [["additives", "en:e150d"]] } */
   nova_groups_markers?: Record<string, string[][]>;
+  /** "food", "beauty", "petfood" or "product" since OFF merged its databases. */
+  product_type?: string;
+  labels_tags?: string[];
+  image_front_small_url?: string;
+  nutriscore_data?: {
+    components?: Partial<
+      Record<
+        'negative' | 'positive',
+        {
+          id?: string;
+          points?: number;
+          points_max?: number;
+          value?: number | null;
+          unit?: string;
+        }[]
+      >
+    >;
+  };
 }
 
 const KJ_PER_KCAL = 4.184;
@@ -93,6 +120,27 @@ export function novaMarkersFromOff(p: OffProduct): string[] {
   });
 }
 
+/** OFF's Nutri-Score breakdown; entries missing an id or points are skipped. */
+export function nutriscoreComponentsFromOff(p: OffProduct): NutriscoreComponent[] {
+  const components = p.nutriscore_data?.components ?? {};
+  return (['negative', 'positive'] as const).flatMap((kind) =>
+    (components[kind] ?? []).flatMap((c) =>
+      c.id && typeof c.points === 'number' && typeof c.points_max === 'number'
+        ? [
+            {
+              id: c.id,
+              kind,
+              points: c.points,
+              pointsMax: c.points_max,
+              value: typeof c.value === 'number' ? c.value : null,
+              unit: c.unit ?? '',
+            },
+          ]
+        : [],
+    ),
+  );
+}
+
 export function scoringInputFromOff(p: OffProduct): ScoringInput {
   return {
     nutrition: nutritionFromOff(p.nutriments),
@@ -103,6 +151,32 @@ export function scoringInputFromOff(p: OffProduct): ScoringInput {
       novaMarkers: novaMarkersFromOff(p),
       nutriscoreGrade: p.nutriscore_grade,
       nutriscoreScore: p.nutriscore_score,
+      nutriscoreComponents: nutriscoreComponentsFromOff(p),
     },
   };
+}
+
+/**
+ * Vegetarian mark printed on the pack, from OFF label tags only (labels are copied from the
+ * packaging; OFF's ingredient-based guess is ignored on purpose). The Indian marks
+ * en:green-dot-india and en:brown-triangle-india have en:vegetarian / en:non-vegetarian as parents.
+ */
+export function vegMark(labels: string[] = []): 'veg' | 'non-veg' | null {
+  const veg = labels.includes('en:vegetarian') || labels.includes('en:green-dot-india');
+  const nonVeg = labels.includes('en:non-vegetarian') || labels.includes('en:brown-triangle-india');
+  if (veg === nonVeg) return null; // none, or contradictory data
+  return veg ? 'veg' : 'non-veg';
+}
+
+export type NotFoodKind = 'non_food' | 'alcohol' | 'supplement';
+
+/** Records that are in OFF but should not get a food score. Category tags are from the OFF taxonomy. */
+export function notFoodKind(p: OffProduct): NotFoodKind | null {
+  const c = p.categories_tags ?? [];
+  if ((p.product_type && p.product_type !== 'food') || c.includes('en:non-food-products')) {
+    return 'non_food';
+  }
+  if (c.includes('en:alcoholic-beverages')) return 'alcohol';
+  if (c.includes('en:dietary-supplements')) return 'supplement';
+  return null;
 }

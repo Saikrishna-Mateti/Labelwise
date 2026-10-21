@@ -29,7 +29,19 @@ export interface ScoringInput {
     novaMarkers?: string[];
     nutriscoreGrade?: string;
     nutriscoreScore?: number;
+    /** OFF's Nutri-Score breakdown: points each component adds (negative) or removes (positive). */
+    nutriscoreComponents?: NutriscoreComponent[];
   };
+}
+
+export interface NutriscoreComponent {
+  /** OFF id, e.g. "sugars", "saturated_fat", "fiber". */
+  id: string;
+  kind: 'negative' | 'positive';
+  points: number;
+  pointsMax: number;
+  value: number | null;
+  unit: string;
 }
 
 export interface Reason {

@@ -1,31 +1,13 @@
-/// <reference types="node" />
-
-import { DatabaseSync } from 'node:sqlite';
-
 import fixtures from '../../scoring/__tests__/fixtures/off-products.json';
 import { inr } from '../../scoring/inr';
-import { createStore, type Db, type Store } from '../db';
+import { memoryDb } from '../../test-utils/memoryDb';
+import { createStore, type Store } from '../db';
 import type { OffProduct } from '../normalize';
 import type { OffResult } from '../offClient';
 import { CACHE_TTL_MS, resolveProduct, toScoringInput } from '../resolver';
 
 const off = fixtures as Record<string, OffProduct>;
 const PARLE_G = '8901719101038';
-
-/** Node's built-in SQLite behind the expo-sqlite methods the store uses. */
-function memoryDb(): Db {
-  const db = new DatabaseSync(':memory:');
-  const args = (p: unknown[]) => (p.length === 1 && Array.isArray(p[0]) ? p[0] : p) as never[];
-  return {
-    execAsync: async (sql: string) => db.exec(sql),
-    runAsync: async (sql: string, ...p: unknown[]) => {
-      const r = db.prepare(sql).run(...args(p));
-      return { lastInsertRowId: Number(r.lastInsertRowid), changes: Number(r.changes) };
-    },
-    getFirstAsync: async (sql: string, ...p: unknown[]) => db.prepare(sql).get(...args(p)) ?? null,
-    getAllAsync: async (sql: string, ...p: unknown[]) => db.prepare(sql).all(...args(p)),
-  } as unknown as Db;
-}
 
 let store: Store;
 let clock: number;
@@ -151,7 +133,7 @@ test('scan history: newest first, with cached names, deletable', async () => {
   await store.addScan(PARLE_G, 1);
   await store.addScan('8900000000001', 2);
   const scans = await store.listScans();
-  expect(scans.map((s) => [s.barcode, s.name])).toEqual([
+  expect(scans.map((s) => [s.barcode, s.off?.product_name ?? null])).toEqual([
     ['8900000000001', null],
     [PARLE_G, off[PARLE_G].product_name],
   ]);

@@ -55,7 +55,57 @@
     "nutrition_data": "on",
     "nutrition_data_per": "100g",
     "nutrition_data_prepared_per": "100g",
-    "product_name": "Parle - G"
+    "product_name": "Parle - G",
+    "nutriscore_data": {
+      "components": {
+        "negative": [
+          {
+            "id": "energy",
+            "points": 5,
+            "points_max": 10,
+            "value": 1930.09,
+            "unit": "kJ"
+          },
+          {
+            "id": "sugars",
+            "points": 7,
+            "points_max": 15,
+            "value": 24.82,
+            "unit": "g"
+          },
+          {
+            "id": "saturated_fat",
+            "points": 6,
+            "points_max": 10,
+            "value": 6.21,
+            "unit": "g"
+          },
+          {
+            "id": "salt",
+            "points": 3,
+            "points_max": 20,
+            "value": 0.75,
+            "unit": "g"
+          }
+        ],
+        "positive": [
+          {
+            "id": "fiber",
+            "points": 0,
+            "points_max": 5,
+            "value": 1.77,
+            "unit": "g"
+          },
+          {
+            "id": "fruits_vegetables_legumes",
+            "points": 0,
+            "points_max": 5,
+            "value": 0,
+            "unit": "%"
+          }
+        ]
+      }
+    }
   },
   "8901491101837": {
     "additives_tags": ["en:e551", "en:e627", "en:e631"],
@@ -164,7 +214,71 @@
     "nutriscore_score": 12,
     "nutrition_data": "on",
     "nutrition_data_prepared_per": "100g",
-    "product_name": "Pepsi"
+    "product_name": "Pepsi",
+    "nutriscore_data": {
+      "components": {
+        "negative": [
+          {
+            "id": "energy",
+            "points": 3,
+            "points_max": 10,
+            "value": 185.3,
+            "unit": "kJ"
+          },
+          {
+            "id": "sugars",
+            "points": 9,
+            "points_max": 10,
+            "value": 10.9,
+            "unit": "g"
+          },
+          {
+            "id": "saturated_fat",
+            "points": 0,
+            "points_max": 10,
+            "value": 0,
+            "unit": "g"
+          },
+          {
+            "id": "salt",
+            "points": 0,
+            "points_max": 20,
+            "value": 0.01,
+            "unit": "g"
+          },
+          {
+            "id": "non_nutritive_sweeteners",
+            "points": 0,
+            "points_max": 4,
+            "value": 0,
+            "unit": "number"
+          }
+        ],
+        "positive": [
+          {
+            "id": "proteins",
+            "points": 0,
+            "points_max": 7,
+            "value": 0,
+            "unit": "g"
+          },
+          {
+            "id": "fiber",
+            "points": 0,
+            "points_max": 5,
+            "value": null,
+            "unit": "g"
+          },
+          {
+            "id": "fruits_vegetables_legumes",
+            "points": 0,
+            "points_max": 6,
+            "value": 0,
+            "unit": "%"
+          }
+        ]
+      }
+    }
   },
   "8901058000290": {
     "additives_tags": [

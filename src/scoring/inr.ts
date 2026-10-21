@@ -1,7 +1,8 @@
 // Indian Nutrition Rating, implemented exactly from the FSSAI DRAFT Food Safety and Standards
 // (Labelling & Display) Amendment Regulations, 2022 (F. No. Std./SP-08/T(FoPNL-N-01), 13 Sep 2022),
 // Schedule III Tables 2-6. Source: docs/sources/fssai-inr-draft-2022-usda-IN2022-0085.pdf, Appendix I pages 9-10.
-// This is a draft proposal, not an adopted FSSAI standard.
+// This is a draft proposal, never finalised. As of Oct 2026 FSSAI is moving to warning labels instead
+// (docs/FSSAI Front-of-Pack Labelling ... October 2026.md).
 //
 // Units in the draft: energy kcal, sugars/sat fat/fibre/protein g, sodium mg, FV/NLM %,
 // per 100 g (solid) or 100 ml (liquid), as sold.
@@ -11,7 +12,6 @@
 // 2. Table 3 (liquids) has no sat fat or sodium columns: liquid baseline = energy + sugars only.
 // 3. "Beverage without energy and/or sugar" is not rated: liquids with 0 kcal OR 0 g sugar get no stars.
 
-import { nutrientReasons } from './reasons';
 import type {
   NutrientKey,
   ProductType,
@@ -52,7 +52,7 @@ const LIQUID = {
   proteinG: [1.5, 2, 2.5, 3, 5, 7, 10, 15, 20, 25, 30, 35, 40, 45, 50],
 } as const;
 
-const RISK: Record<ProductType, NutrientKey[]> = {
+export const RISK: Record<ProductType, NutrientKey[]> = {
   solid: ['energyKcal', 'saturatedFatG', 'sugarsG', 'sodiumMg'],
   liquid: ['energyKcal', 'sugarsG'],
 };
@@ -102,11 +102,21 @@ export function starsFor(type: ProductType, finalScore: number): number {
   return STARS[type].find(([max]) => finalScore <= max)?.[1] ?? 0.5;
 }
 
+export interface InrComponent {
+  key: NutrientKey;
+  /** against = baseline (risk) points, for = positive points after the Table 4 cap. */
+  kind: 'against' | 'for';
+  points: number;
+  /** Most points this component can give: table length, or the Table 4 cap for positives. */
+  max: number;
+}
+
 export interface InrBreakdown {
   baseline: number;
   positive: number;
   finalScore: number;
   stars: number;
+  components: InrComponent[];
 }
 
 /** Tables 2-6. Missing positive factors count as 0 points; missing risk factors make it unscorable. */
@@ -115,16 +125,31 @@ export function inrBreakdown(input: ScoringInput): InrBreakdown | null {
   const table: Partial<Record<NutrientKey, Thresholds>> = type === 'solid' ? SOLID : LIQUID;
   if (RISK[type].some((k) => n[k] === undefined)) return null;
 
-  const baseline = RISK[type].reduce((sum, k) => sum + points(n[k]!, table[k]!), 0);
-  const positive = POSITIVE[type].reduce((sum, k) => {
-    const v = n[k];
-    return v === undefined ? sum : sum + Math.min(points(v, table[k]!), cap(type, baseline, k));
-  }, 0);
+  const against: InrComponent[] = RISK[type].map((key) => ({
+    key,
+    kind: 'against',
+    points: points(n[key]!, table[key]!),
+    max: table[key]!.length,
+  }));
+  const baseline = against.reduce((sum, c) => sum + c.points, 0);
+  const inFavour: InrComponent[] = POSITIVE[type].flatMap((key) => {
+    const v = n[key];
+    if (v === undefined) return [];
+    const max = cap(type, baseline, key);
+    return [{ key, kind: 'for' as const, points: Math.min(points(v, table[key]!), max), max }];
+  });
+  const positive = inFavour.reduce((sum, c) => sum + c.points, 0);
   const finalScore = baseline - positive;
-  return { baseline, positive, finalScore, stars: starsFor(type, finalScore) };
+  return {
+    baseline,
+    positive,
+    finalScore,
+    stars: starsFor(type, finalScore),
+    components: [...against, ...inFavour],
+  };
 }
 
-const LABEL_FOR: Record<NutrientKey, string> = {
+export const LABEL_FOR: Record<NutrientKey, string> = {
   energyKcal: 'energy',
   sugarsG: 'total sugars',
   saturatedFatG: 'saturated fat',
@@ -135,20 +160,74 @@ const LABEL_FOR: Record<NutrientKey, string> = {
   nutsLegumesMilletsPct: 'nuts, legumes and millets %',
 };
 
+const UNIT: Record<NutrientKey, string> = {
+  energyKcal: 'kcal',
+  sugarsG: 'g',
+  saturatedFatG: 'g',
+  sodiumMg: 'mg',
+  fibreG: 'g',
+  proteinG: 'g',
+  fruitVegPct: '%',
+  nutsLegumesMilletsPct: '%',
+};
+
+const fmt = (n: number) => String(Number(n.toFixed(1)));
+const capitalise = (s: string) => s[0].toUpperCase() + s.slice(1);
+
+/**
+ * The draft's own points per nutrient. Table 1 values are reference points inside the scoring
+ * tables (a nutrient at its reference value scores 5), not "high in" limits, so none are shown as such.
+ */
+function componentReasons(b: InrBreakdown, input: ScoringInput): Reason[] {
+  const per = input.productType === 'liquid' ? 'per 100 ml' : 'per 100 g';
+  const reasons: Reason[] = [
+    {
+      kind: 'info',
+      text: `${b.baseline} points against − ${b.positive} in favour = score ${b.finalScore}`,
+    },
+  ];
+  for (const c of b.components) {
+    if (c.points === 0) continue;
+    const value = `${capitalise(LABEL_FOR[c.key])} ${fmt(input.nutrition[c.key]!)} ${UNIT[c.key]} ${per}`;
+    reasons.push(
+      c.kind === 'against'
+        ? { kind: 'con', text: `${value}: ${c.points} of ${c.max} points against` }
+        : { kind: 'pro', text: `${value}: ${c.points} of ${c.max} points in favour` },
+    );
+  }
+  if (input.productType === 'liquid') {
+    reasons.push({
+      kind: 'info',
+      text: 'For drinks the draft scores only energy and sugars against, and fruit and vegetables and protein in favour.',
+    });
+  }
+  return reasons;
+}
+
+/** The risk factors costing the most points, largest first (ties keep table order). */
+export function biggestPointsAgainst(input: ScoringInput, limit = 2): string[] {
+  const b = inrBreakdown(input);
+  if (!b) return [];
+  return b.components
+    .filter((c) => c.kind === 'against' && c.points > 0)
+    .sort((x, y) => y.points - x.points)
+    .slice(0, limit)
+    .map((c) => LABEL_FOR[c.key]);
+}
+
 export const inr: ScoringMethod = {
   id: 'inr',
-  name: 'Indian Nutrition Rating (FSSAI draft)',
+  name: 'Indian Nutrition Rating (2022 FSSAI draft, not in force)',
   score(input) {
     const { nutrition: n, productType: type } = input;
     const missingInputs = [...RISK[type], ...POSITIVE[type]].filter((k) => n[k] === undefined);
-    const reasons: Reason[] = nutrientReasons(n, type);
-    const result = (value: number | null, band: string | null, extra: Reason[]): ScoreResult => ({
+    const result = (value: number | null, band: string | null, reasons: Reason[]): ScoreResult => ({
       method: 'inr',
       value,
       band,
       source: missingInputs.length ? 'estimated' : 'computed',
       missingInputs,
-      reasons: [...extra, ...reasons],
+      reasons,
     });
 
     const missingRisk = RISK[type].filter((k) => n[k] === undefined);
@@ -185,6 +264,6 @@ export const inr: ScoringMethod = {
         text: `Score ${b.finalScore} sits on an overlap in the draft's liquid table; the lower rating is shown.`,
       });
     }
-    return result(b.stars, `${b.stars} stars`, extra);
+    return result(b.stars, `${b.stars} stars`, [...extra, ...componentReasons(b, input)]);
   },
 };

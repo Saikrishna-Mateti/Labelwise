@@ -26,8 +26,9 @@ export interface Scan {
   id: number;
   barcode: string;
   scannedAt: number;
-  /** Product name from the OFF cache, if cached. */
-  name: string | null;
+  /** Cached OFF record and the user's entry, so a history row can show its score. */
+  off: OffProduct | null;
+  user: UserEntry | null;
 }
 
 const SCHEMA = `
@@ -48,6 +49,10 @@ CREATE TABLE IF NOT EXISTS scans (
   scanned_at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS scans_scanned_at ON scans (scanned_at);
+CREATE TABLE IF NOT EXISTS settings (
+  key TEXT PRIMARY KEY NOT NULL,
+  value TEXT NOT NULL
+);
 `;
 
 export function createStore(db: Db) {
@@ -98,27 +103,59 @@ export function createStore(db: Db) {
       );
     },
 
-    listScans(limit = 200): Promise<Scan[]> {
-      return db.getAllAsync<Scan>(
-        `SELECT s.id, s.barcode, s.scanned_at AS scannedAt,
-                json_extract(p.json, '$.product_name') AS name
-         FROM scans s LEFT JOIN off_products p ON p.barcode = s.barcode
+    async listScans(limit = 200): Promise<Scan[]> {
+      const rows = await db.getAllAsync<{
+        id: number;
+        barcode: string;
+        scannedAt: number;
+        offJson: string | null;
+        userJson: string | null;
+      }>(
+        `SELECT s.id, s.barcode, s.scanned_at AS scannedAt, p.json AS offJson, u.json AS userJson
+         FROM scans s
+         LEFT JOIN off_products p ON p.barcode = s.barcode
+         LEFT JOIN user_entries u ON u.barcode = s.barcode
          ORDER BY s.scanned_at DESC, s.id DESC LIMIT ?`,
         limit,
       );
+      return rows.map(({ offJson, userJson, ...r }) => ({
+        ...r,
+        off: offJson ? (JSON.parse(offJson) as OffProduct) : null,
+        user: userJson ? (JSON.parse(userJson) as UserEntry) : null,
+      }));
     },
 
     async deleteScan(id: number): Promise<void> {
       await db.runAsync('DELETE FROM scans WHERE id = ?', id);
+    },
+
+    async getSetting(key: string): Promise<string | null> {
+      const row = await db.getFirstAsync<{ value: string }>(
+        'SELECT value FROM settings WHERE key = ?',
+        key,
+      );
+      return row?.value ?? null;
+    },
+
+    async setSetting(key: string, value: string): Promise<void> {
+      await db.runAsync('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', key, value);
     },
   };
 }
 
 export type Store = ReturnType<typeof createStore>;
 
-export async function openStore(): Promise<Store> {
+async function openStore(): Promise<Store> {
   const { openDatabaseAsync } = await import('expo-sqlite');
   const store = createStore(await openDatabaseAsync('labelwise.db'));
   await store.init();
   return store;
+}
+
+let opened: Promise<Store> | undefined;
+
+/** The app's one database, opened on first use. */
+export function getStore(): Promise<Store> {
+  opened ??= openStore();
+  return opened;
 }

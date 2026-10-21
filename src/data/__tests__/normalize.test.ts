@@ -3,10 +3,13 @@ import { nova } from '../../scoring/nova';
 import {
   additiveName,
   additivesFromOff,
+  notFoodKind,
   novaMarkersFromOff,
+  nutriscoreComponentsFromOff,
   nutritionFromOff,
   productTypeFromOff,
   scoringInputFromOff,
+  vegMark,
   type OffProduct,
 } from '../normalize';
 
@@ -90,4 +93,35 @@ describe('additives and NOVA markers', () => {
   test('no markers: plain OFF reason', () => {
     expect(novaMarkersFromOff({ nova_group: 4 })).toEqual([]);
   });
+});
+
+describe('vegMark', () => {
+  test.each([
+    [['en:vegetarian', 'en:green-dot-india'], 'veg'],
+    [['en:non-vegetarian', 'en:brown-triangle-india'], 'non-veg'],
+    [['en:green-dot-india'], 'veg'],
+    [['en:vegetarian', 'en:non-vegetarian'], null], // contradictory
+    [['en:organic'], null],
+    [undefined, null],
+  ])('%j -> %s', (labels, expected) => expect(vegMark(labels)).toBe(expected));
+});
+
+describe('notFoodKind', () => {
+  test.each([
+    [{ product_type: 'beauty' }, 'non_food'],
+    [{ categories_tags: ['en:non-food-products', 'en:open-beauty-facts'] }, 'non_food'],
+    [{ categories_tags: ['en:beverages', 'en:alcoholic-beverages', 'en:beers'] }, 'alcohol'],
+    [{ categories_tags: ['en:dietary-supplements', 'en:vitamin-supplements'] }, 'supplement'],
+    [{ product_type: 'food', categories_tags: ['en:snacks'] }, null],
+    [{}, null],
+  ])('%j -> %s', (p, expected) => expect(notFoodKind(p)).toBe(expected));
+});
+
+test('Nutri-Score breakdown from OFF (Pepsi)', () => {
+  const c = nutriscoreComponentsFromOff(off['8902080104581']);
+  expect(c.filter((x) => x.points > 0).map((x) => [x.id, x.points])).toEqual([
+    ['energy', 3],
+    ['sugars', 9],
+  ]);
+  expect(nutriscoreComponentsFromOff({})).toEqual([]);
 });
