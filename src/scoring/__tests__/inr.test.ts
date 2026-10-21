@@ -1,5 +1,5 @@
 import { scoringInputFromOff, type OffProduct } from '../../data/normalize';
-import { inr, inrBreakdown, starsFor } from '../inr';
+import { biggestPointsAgainst, inr, inrBreakdown, starsFor } from '../inr';
 import type { NutritionPer100, ProductType } from '../types';
 import fixtures from './fixtures/off-products.json';
 
@@ -190,22 +190,80 @@ describe('inr.score', () => {
 describe('real OFF products (hand-calculated from the draft tables)', () => {
   test('Parle-G: baseline 19, protein 6 -> 13 -> 2 stars, estimated', () => {
     const input = scoringInputFromOff(off['8901719101038']);
-    expect(inrBreakdown(input)).toEqual({ baseline: 19, positive: 6, finalScore: 13, stars: 2 });
+    expect(inrBreakdown(input)).toMatchObject({
+      baseline: 19,
+      positive: 6,
+      finalScore: 13,
+      stars: 2,
+    });
     expect(inr.score(input)).toMatchObject({ value: 2, source: 'estimated' });
   });
 
   test("Lay's Classic Salted: baseline 19, protein 5 -> 14 -> 2 stars", () => {
     const input = scoringInputFromOff(off['8901491101837']);
-    expect(inrBreakdown(input)).toEqual({ baseline: 19, positive: 5, finalScore: 14, stars: 2 });
+    expect(inrBreakdown(input)).toMatchObject({
+      baseline: 19,
+      positive: 5,
+      finalScore: 14,
+      stars: 2,
+    });
   });
 
   test('Pepsi (liquid): energy 7 + sugars 8 = 15 -> 2 stars', () => {
     const input = scoringInputFromOff(off['8902080104581']);
     expect(input.productType).toBe('liquid');
-    expect(inrBreakdown(input)).toEqual({ baseline: 15, positive: 0, finalScore: 15, stars: 2 });
+    expect(inrBreakdown(input)).toMatchObject({
+      baseline: 15,
+      positive: 0,
+      finalScore: 15,
+      stars: 2,
+    });
   });
 
   test('Maggi has only prepared values: not rated', () => {
     expect(inr.score(scoringInputFromOff(off['8901058000290'])).value).toBeNull();
+  });
+});
+
+describe('reasons show the draft points, never "high in"', () => {
+  test('Pepsi: arithmetic, then each nutrient with its points', () => {
+    const r = inr.score(scoringInputFromOff(off['8902080104581']));
+    const texts = r.reasons.map((x) => x.text);
+    expect(texts).toContain('15 points against − 0 in favour = score 15');
+    expect(texts).toContain('Energy 43 kcal per 100 ml: 7 of 10 points against');
+    expect(texts).toContain('Total sugars 10.9 g per 100 ml: 8 of 10 points against');
+    expect(texts.some((t) => /high in/i.test(t))).toBe(false);
+  });
+
+  test('a value exactly at its Table 1 reference earns 4 points, just above earns 5', () => {
+    const at = { ...solidZero, sugarsG: 21 };
+    expect(baseline('solid', at)).toBe(4);
+    expect(baseline('solid', { ...at, sugarsG: 21.1 })).toBe(5);
+  });
+
+  test('positive points show the Table 4 cap as their maximum', () => {
+    // baseline 25 (> 20): protein capped at 7
+    const r = inr.score({
+      productType: 'solid',
+      nutrition: {
+        ...solidZero,
+        saturatedFatG: 50,
+        proteinG: 60,
+        fibreG: 0,
+        fruitVegPct: 0,
+        nutsLegumesMilletsPct: 0,
+      },
+    });
+    expect(r.reasons.map((x) => x.text)).toContain(
+      'Protein 60 g per 100 g: 7 of 7 points in favour',
+    );
+  });
+
+  test('biggest points against, largest first', () => {
+    expect(biggestPointsAgainst(scoringInputFromOff(off['8902080104581']))).toEqual([
+      'total sugars',
+      'energy',
+    ]);
+    expect(biggestPointsAgainst({ productType: 'solid', nutrition: {} })).toEqual([]);
   });
 });

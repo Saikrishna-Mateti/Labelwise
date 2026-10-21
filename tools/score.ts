@@ -4,9 +4,21 @@
 import { normalizeBarcode } from '../src/data/barcode';
 import { additivesFromOff, scoringInputFromOff } from '../src/data/normalize';
 import { fetchProduct } from '../src/data/offClient';
-import { inr } from '../src/scoring/inr';
+import { inr, LABEL_FOR } from '../src/scoring/inr';
 import { nova } from '../src/scoring/nova';
 import { nutriscore } from '../src/scoring/nutriscore';
+import type { NutrientKey } from '../src/scoring/types';
+
+const NUTRIENT_UNITS: [NutrientKey, string][] = [
+  ['energyKcal', 'kcal'],
+  ['sugarsG', 'g'],
+  ['saturatedFatG', 'g'],
+  ['sodiumMg', 'mg'],
+  ['fibreG', 'g'],
+  ['proteinG', 'g'],
+  ['fruitVegPct', '%'],
+  ['nutsLegumesMilletsPct', '%'],
+];
 
 async function main() {
   const barcode = normalizeBarcode(process.argv[2] ?? '');
@@ -27,7 +39,13 @@ async function main() {
   const input = scoringInputFromOff(p);
   console.log(`${p.product_name || '(no name)'} — ${p.brands || '(no brand)'} [${barcode}]`);
   console.log(`Type: ${input.productType}`);
-  console.log('Per 100:', JSON.stringify(input.nutrition));
+  console.log(`Per ${input.productType === 'liquid' ? '100 ml' : '100 g'}:`);
+  for (const [key, unit] of NUTRIENT_UNITS) {
+    const v = input.nutrition[key];
+    console.log(
+      `  ${LABEL_FOR[key]}: ${v === undefined ? 'unknown' : `${Number(v.toFixed(1))} ${unit}`}`,
+    );
+  }
 
   for (const method of [inr, nutriscore, nova]) {
     const r = method.score(input);

@@ -1,6 +1,5 @@
 import { nova, novaMarkers } from '../nova';
 import { nutriscore } from '../nutriscore';
-import { nutrientReasons } from '../reasons';
 
 describe('nova', () => {
   test('uses OFF group when present', () => {
@@ -48,32 +47,6 @@ describe('nova', () => {
   ])('markers in %p', (text, expected) => expect(novaMarkers(text)).toEqual(expected));
 });
 
-describe('nutrientReasons (FSSAI draft Table 1 thresholds)', () => {
-  test('solid: above reference is a con, at reference is not', () => {
-    const texts = nutrientReasons({ sugarsG: 21.5, sodiumMg: 450 }, 'solid').map((r) => r.text);
-    expect(texts).toEqual(['High in sugar: 21.5 g per 100 g (FSSAI draft reference 21 g)']);
-  });
-
-  test('liquid uses liquid reference values', () => {
-    const r = nutrientReasons({ sugarsG: 6.5 }, 'liquid');
-    expect(r[0]).toEqual({
-      kind: 'con',
-      text: 'High in sugar: 6.5 g per 100 ml (FSSAI draft reference 6 g)',
-    });
-  });
-
-  test('positive factors above minimum are pros', () => {
-    const r = nutrientReasons({ proteinG: 7.09, fibreG: 3 }, 'solid');
-    expect(r).toEqual([{ kind: 'pro', text: 'Contains protein: 7.1 g per 100 g' }]);
-  });
-
-  test('nothing notable with full data vs missing data', () => {
-    const full = { energyKcal: 100, sugarsG: 1, saturatedFatG: 1, sodiumMg: 10 };
-    expect(nutrientReasons(full, 'solid')[0].text).toMatch(/^No nutrient is above/);
-    expect(nutrientReasons({}, 'solid')[0].text).toMatch(/^Not enough nutrition data/);
-  });
-});
-
 describe('nutriscore (OFF pass-through until the 2023 spec is supplied)', () => {
   test('uses OFF grade', () => {
     const r = nutriscore.score({
@@ -92,5 +65,27 @@ describe('nutriscore (OFF pass-through until the 2023 spec is supplied)', () => 
     });
     expect(r).toMatchObject({ value: null, band: null });
     expect(r.reasons.length).toBeGreaterThan(0);
+  });
+
+  test("reasons come from OFF's own breakdown, not FSSAI values", () => {
+    const r = nutriscore.score({
+      productType: 'liquid',
+      nutrition: { sugarsG: 10.9 },
+      off: {
+        nutriscoreGrade: 'e',
+        nutriscoreComponents: [
+          { id: 'energy', kind: 'negative', points: 3, pointsMax: 10, value: 185.3, unit: 'kJ' },
+          { id: 'sugars', kind: 'negative', points: 9, pointsMax: 10, value: 10.9, unit: 'g' },
+          { id: 'salt', kind: 'negative', points: 0, pointsMax: 20, value: 0.01, unit: 'g' },
+          { id: 'proteins', kind: 'positive', points: 2, pointsMax: 7, value: 3.4, unit: 'g' },
+        ],
+      },
+    });
+    expect(r.reasons.slice(1)).toEqual([
+      { kind: 'con', text: 'Energy 185.3 kJ per 100 ml: 3 of 10 points against' },
+      { kind: 'con', text: 'Sugars 10.9 g per 100 ml: 9 of 10 points against' },
+      { kind: 'pro', text: 'Protein 3.4 g per 100 ml: 2 of 7 points in favour' },
+    ]);
+    expect(r.reasons.some((x) => x.text.includes('FSSAI'))).toBe(false);
   });
 });

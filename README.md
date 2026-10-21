@@ -21,6 +21,15 @@ This uses a development build, not Expo Go. The first run generates `ios/` and t
 
 On a physical iPhone, pick your Apple ID team in Xcode signing the first time (open `ios/labelwise.xcworkspace`).
 
+## Try it in the simulator
+
+The simulator has no camera, so type a barcode on the scan screen:
+
+- `8901719101038` (Parle-G): rated product
+- `8901058000290` (Maggi): rated by Nutri-Score only; the Indian Nutrition Rating needs values per 100 g as sold
+- `8902080104581` (Pepsi): a drink, rated with the liquid tables
+- `8900000000001`: not found
+
 ## Checks
 
 ```sh
@@ -29,6 +38,8 @@ npm run lint
 npm test
 npm run format   # rewrite files with Prettier
 ```
+
+Route types come from `.expo/types`, which Expo generates when the dev server starts. On a fresh clone, run `npx expo start` once before `npm run typecheck`.
 
 ## Score a product from the command line
 
@@ -49,6 +60,12 @@ Fetches the product from Open Food Facts and prints the Indian Nutrition Rating 
 - `expo-linking`, `expo-constants`, `react-native-screens`, `react-native-safe-area-context`: required by Expo Router.
 - `react-dom`: optional peer of Expo Router, pinned to match `react` so npm can resolve the tree.
 - `expo-status-bar`: status bar colour following light/dark mode.
+- `expo-camera`: barcode scanner (EAN-13, EAN-8, UPC-A). Chosen over react-native-vision-camera because it ships with each Expo SDK and covers these barcode types.
+- `expo-haptics`: vibration on a successful scan.
+- `expo-glass-effect`: Liquid Glass for the torch button over the camera (iOS 26+, solid fallback elsewhere and with Reduce Transparency).
+- `expo-image`: product photos from Open Food Facts, with caching.
+- `@tanstack/react-query`: loading and error states for product lookups and history.
+- `react-native-gesture-handler`, `react-native-reanimated`, `react-native-worklets`: swipe to delete in history (already required by Expo Router, now listed directly).
 - `expo-sqlite`: on-device storage for scan history, the Open Food Facts cache and user-entered nutrition.
 - `jest`, `jest-expo`, `@types/jest`: unit tests.
 - `@testing-library/react-native`: screen tests.
