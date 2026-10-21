@@ -25,6 +25,7 @@
     "jest": "30.5.2",
     "jest-expo": "58.0.11",
     "prettier": "3.9.10",
+    "tsx": "4.23.15",
     "typescript": "6.0.3"
   },
   "scripts": {
@@ -33,7 +34,8 @@
     "test": "jest",
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "score": "tsx tools/score.ts"
   },
   "private": true,
   "jest": {
