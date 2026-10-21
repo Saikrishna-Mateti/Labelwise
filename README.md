@@ -49,14 +49,18 @@ Fetches the product from Open Food Facts and prints the Indian Nutrition Rating 
 - `expo-linking`, `expo-constants`, `react-native-screens`, `react-native-safe-area-context`: required by Expo Router.
 - `react-dom`: optional peer of Expo Router, pinned to match `react` so npm can resolve the tree.
 - `expo-status-bar`: status bar colour following light/dark mode.
+- `expo-sqlite`: on-device storage for scan history, the Open Food Facts cache and user-entered nutrition.
 - `jest`, `jest-expo`, `@types/jest`: unit tests.
 - `@testing-library/react-native`: screen tests.
 - `eslint`, `eslint-config-expo`: linting.
 - `prettier`, `eslint-config-prettier`, `eslint-plugin-prettier`: formatting, enforced through lint.
 - `typescript`, `@types/react`: strict type checking.
 - `tsx`: runs the TypeScript CLI in `tools/` under Node.
+- `@types/node`: types for Node's built-in SQLite, which the data-layer tests use in place of the native module.
 
 ## Data and licence
+
+Product lookups are read-only `GET` requests to the Open Food Facts API v2, sent with the User-Agent `Labelwise/0.1 (saikrrish321@gmail.com)`. Results are cached on the device for 7 days. Nutrition you enter yourself is stored in its own table and never leaves the device.
 
 Product data comes from [Open Food Facts](https://world.openfoodfacts.org) and is available under the [Open Database License (ODbL)](https://opendatacommons.org/licenses/odbl/1-0/). Labelwise is not affiliated with or endorsed by Open Food Facts or FSSAI.
 
