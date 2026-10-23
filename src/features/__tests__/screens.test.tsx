@@ -7,6 +7,7 @@ import type { OffProduct } from '../../data/normalize';
 import { fetchProduct } from '../../data/offClient';
 import fixtures from '../../scoring/__tests__/fixtures/off-products.json';
 import { memoryDb } from '../../test-utils/memoryDb';
+import { EntryScreen } from '../entry/EntryScreen';
 import { ProductScreen } from '../product/ProductScreen';
 import { ScanScreen } from '../scan/ScanScreen';
 
@@ -14,9 +15,10 @@ jest.mock('../../data/db', () => ({ ...jest.requireActual('../../data/db'), getS
 jest.mock('../../data/offClient', () => ({ fetchProduct: jest.fn() }));
 
 const mockPush = jest.fn();
+const mockBack = jest.fn();
 jest.mock('expo-router', () => ({
   useFocusEffect: () => {},
-  useRouter: () => ({ push: mockPush }),
+  useRouter: () => ({ push: mockPush, back: mockBack }),
 }));
 jest.mock('expo-camera', () => ({
   CameraView: () => null,
@@ -62,7 +64,13 @@ describe('ProductScreen', () => {
     ).toBeOnTheScreen();
     expect(screen.getByLabelText('Nutri-Score: E')).toBeOnTheScreen();
     expect(screen.getByLabelText('Processing: NOVA 4')).toBeOnTheScreen();
-    // Each system explains itself: FSSAI values under INR, OFF's points under Nutri-Score.
+    // Overall band from Nutri-Score E, and Nutri-Score's own points per nutrient.
+    expect(screen.getByLabelText('Overall: Bad, from Nutri-Score E')).toBeOnTheScreen();
+    expect(
+      screen.getByLabelText('Sugars, 24.8 g per 100 g: 7 of 15 points against'),
+    ).toBeOnTheScreen();
+    // Each system explains itself, under a fold: FSSAI values under INR, OFF's points under Nutri-Score.
+    await fireEvent.press(screen.getByText('How the ratings were worked out'));
     expect(
       screen.getByText('Saturated fat 6.2 g per 100 g: 6 of 25 points against'),
     ).toBeOnTheScreen();
@@ -93,6 +101,42 @@ describe('ProductScreen', () => {
     await renderWithQuery(<ProductScreen barcode="8901719101038" />);
     expect(await screen.findByText(/You’re offline/)).toBeOnTheScreen();
     expect(screen.getByText('Try again')).toBeOnTheScreen();
+  });
+});
+
+describe('EntryScreen', () => {
+  test('entering values makes an unrated product scorable and marks them as yours', async () => {
+    const { nutriscore_grade, nutriscore_score, ...maggi } = off['8901058000290'];
+    jest.mocked(fetchProduct).mockResolvedValue({ status: 'found', product: maggi });
+    await renderWithQuery(
+      <>
+        <ProductScreen barcode="8901058000290" />
+        <EntryScreen barcode="8901058000290" />
+      </>,
+    );
+    expect(await screen.findByText('Not enough data to rate this')).toBeOnTheScreen();
+
+    const type = (label: string, value: string) =>
+      fireEvent.changeText(screen.getByLabelText(label), value);
+    await type('Energy (kcal)', '950');
+    await fireEvent.press(screen.getByText('Save'));
+    expect(screen.getByText('Can’t be more than 900 kcal per 100')).toBeOnTheScreen();
+    expect(mockBack).not.toHaveBeenCalled();
+
+    await type('Energy (kcal)', '427');
+    await type('Total sugars (g)', '2.6');
+    await type('Saturated fat (g)', '7.1');
+    await fireEvent.press(screen.getByText('Salt (g)'));
+    await type('Salt (g)', '3.2');
+    await fireEvent.press(screen.getByText('Save'));
+
+    expect(await screen.findByLabelText(/India rating \(draft\): .* stars/)).toBeOnTheScreen();
+    expect(screen.getByText('1280 mg (yours)')).toBeOnTheScreen();
+    expect(mockBack).toHaveBeenCalled();
+    expect((await store.getUserEntry('8901058000290'))?.nutrition).toMatchObject({
+      energyKcal: 427,
+      sodiumMg: 1280,
+    });
   });
 });
 

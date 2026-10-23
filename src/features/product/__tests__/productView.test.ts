@@ -1,7 +1,7 @@
 import type { OffProduct } from '../../../data/normalize';
 import { mergeProduct } from '../../../data/resolver';
 import fixtures from '../../../scoring/__tests__/fixtures/off-products.json';
-import { productView } from '../productView';
+import { overallFor, productView } from '../productView';
 
 const off = fixtures as Record<string, OffProduct>;
 const ok = (p: OffProduct, offError?: 'offline') => ({
@@ -47,4 +47,26 @@ test('non-food and alcohol are not scored', () => {
   );
   const beer = productView(ok({ code: '1', categories_tags: ['en:alcoholic-beverages'] }));
   expect(beer).toMatchObject({ kind: 'not_food', notFood: 'alcohol' });
+});
+
+test('overall band follows the Nutri-Score grade, so an E never looks good', () => {
+  expect(['A', 'B', 'C', 'D', 'E'].map((g) => overallFor(g)?.label)).toEqual([
+    'Excellent',
+    'Good',
+    'Poor',
+    'Poor',
+    'Bad',
+  ]);
+  expect(overallFor(null)).toBeNull();
+});
+
+test('factors: Nutri-Score points, worst first; zero points against counts as good', () => {
+  const v = productView(ok(off['8902080104581'])); // Pepsi
+  if (v.kind !== 'scored') throw new Error(v.kind);
+  expect(v.overall?.label).toBe('Bad');
+  expect(v.factors[0]).toMatchObject({ label: 'Sugars', points: 9, max: 10, good: false });
+  expect(v.factors.find((f) => f.label === 'Saturated fat')).toMatchObject({
+    points: 0,
+    good: true,
+  });
 });

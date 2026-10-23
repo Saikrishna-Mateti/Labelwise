@@ -53,3 +53,11 @@ export const NOVA_COLORS: Record<number, { bg: string; fg: string }> = {
   3: { bg: '#ee8100', fg: '#111111' },
   4: { bg: '#e63e11', fg: '#ffffff' },
 };
+
+/** Overall band colours (dark green, light green, orange, red), always shown with the band word. */
+export const OVERALL_COLORS: Record<'excellent' | 'good' | 'poor' | 'bad', string> = {
+  excellent: '#038141',
+  good: '#85bb2f',
+  poor: '#ee8100',
+  bad: '#e63e11',
+};

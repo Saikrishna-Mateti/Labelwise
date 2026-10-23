@@ -11,6 +11,7 @@ export function Screen({ children }: { children: ReactNode }) {
       style={{ backgroundColor: t.bg }}
       contentContainerStyle={styles.screen}
       contentInsetAdjustmentBehavior="automatic"
+      automaticallyAdjustKeyboardInsets
       keyboardShouldPersistTaps="handled"
     >
       {children}

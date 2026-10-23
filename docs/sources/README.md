@@ -32,3 +32,11 @@ Planned as its own milestone after Milestone 4 (manual entry), using the school-
 4. Energy check (250 kcal / 70 kcal) included, credited to ICMR-NIN DGI 2024, not FSSAI (the FSSAI draft has no energy threshold).
 5. Liquid = any beverage, including dairy drinks, tea and coffee (DGI footnote 2), separate from INR's Category II.
 6. No exemptions until an official text lists them (the affidavit exemptions are only reported secondhand).
+
+## Manual entry: salt and sodium (Milestone 4)
+
+The form takes sodium (mg) or salt (g) and stores sodium. Salt = sodium × 2.5, from DGI 2024 ch. "Restrict salt intake": "5g of salt per day (equivalent to 2g of sodium)" and "salt is sodium chloride (40% sodium and 60% chloride)". Range checks only reject impossible values: energy ≤ 900 kcal (pure fat, 9 kcal/g), grams and % ≤ 100, sodium ≤ 40 000 mg, added sugars ≤ total sugars.
+
+## Overall band (Labelwise's own, 2026-10-23)
+
+The product sheet's headline Excellent / Good / Poor / Bad band is a Labelwise mapping of OFF's Nutri-Score grade: A → Excellent, B → Good, C and D → Poor, E → Bad. Colours dark green, light green, orange, red. Not a published method. No score out of 100: a straight-line rescale of Nutri-Score points (range about −17 to 55) put grade E products at 52–58/100 ("Good"), so it was rejected. Additives and organic status are not part of it (no sourced additive risk data; Phase 2).

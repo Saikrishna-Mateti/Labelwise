@@ -6,9 +6,9 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Body } from '../../components/ui';
 import type { ScoreResult } from '../../scoring/types';
-import { NOVA_COLORS, NUTRISCORE_COLORS, useTheme } from '../../theme';
+import { NOVA_COLORS, NUTRISCORE_COLORS, OVERALL_COLORS, useTheme } from '../../theme';
 import type { PrimaryMethod } from '../queries';
-import { EXPLAIN, type ProductScores } from './productView';
+import { EXPLAIN, overallFor, type ProductScores } from './productView';
 
 type Method = keyof ProductScores;
 
@@ -116,7 +116,7 @@ export function ScoreTiles({ scores, primary }: { scores: ProductScores; primary
   );
 }
 
-/** Small badge for list rows: the main score, or the next score that has a value. */
+/** Small badge for list rows: the overall band, else the main score or the next one with a value. */
 export function CompactScore({
   scores,
   primary,
@@ -125,6 +125,15 @@ export function CompactScore({
   primary: PrimaryMethod;
 }) {
   const t = useTheme();
+  const overall = overallFor(scores.nutriscore.band);
+  if (overall) {
+    return (
+      <View accessible accessibilityLabel={`Overall: ${overall.label}`} style={styles.compact}>
+        <View style={[styles.compactDot, { backgroundColor: OVERALL_COLORS[overall.band] }]} />
+        <Text style={[styles.tileNote, { color: t.text }]}>{overall.label}</Text>
+      </View>
+    );
+  }
   const method = METHOD_ORDER[primary].find((m) => scores[m].band !== null && m !== 'nova');
   if (!method) return null;
   const r = scores[method];
@@ -174,4 +183,5 @@ const styles = StyleSheet.create({
   none: { fontSize: 18 },
   compact: { alignItems: 'center', justifyContent: 'center', minWidth: 48, gap: 2 },
   compactStars: { fontSize: 16, fontWeight: '700' },
+  compactDot: { width: 18, height: 18, borderRadius: 9 },
 });

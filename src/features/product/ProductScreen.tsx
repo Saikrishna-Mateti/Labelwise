@@ -1,5 +1,6 @@
 import { Image } from 'expo-image';
-import { useState } from 'react';
+import { useRouter } from 'expo-router';
+import { useState, type ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import {
@@ -22,6 +23,7 @@ import type { NutrientKey, Reason } from '../../scoring/types';
 import { useTheme } from '../../theme';
 import { usePrimaryMethod, useProduct, type PrimaryMethod } from '../queries';
 import { joinAnd, productView, type ProductScores } from './productView';
+import { FactorLists, OverallBadge } from './Overview';
 import { METHOD_ORDER, ScoreTiles } from './ScoreTiles';
 
 const UNAVAILABLE: Record<OffError, string> = {
@@ -65,7 +67,7 @@ export function ProductScreen({ barcode }: { barcode: string }) {
             title="Product not found"
             body={`Barcode ${view.barcode} isn’t on Open Food Facts yet. You can add its nutrition values from the pack yourself.`}
           >
-            <AddNutritionButton />
+            <AddNutritionButton barcode={view.barcode} />
           </Message>
         </Screen>
       );
@@ -110,7 +112,7 @@ export function ProductScreen({ barcode }: { barcode: string }) {
                 : 'We don’t have the nutrition values needed to rate it yet.'
             }
           >
-            <AddNutritionButton />
+            <AddNutritionButton barcode={view.product.barcode} edit={hasUserValues(view.product)} />
           </Message>
           <NutritionTable product={view.product} />
           {view.product.off && <OffAttribution barcode={view.product.barcode} />}
@@ -122,25 +124,43 @@ export function ProductScreen({ barcode }: { barcode: string }) {
         <Screen>
           {view.offError && <StaleNotice error={view.offError} />}
           <ProductHeader product={view.product} />
+          <OverallBadge overall={view.overall} />
           {view.verdict && <Verdict text={view.verdict} />}
+          <FactorLists factors={view.factors} />
+          <SectionTitle>All ratings</SectionTitle>
           <ScoreTiles scores={view.scores} primary={primary} />
-          {view.scores[primary].band === null && <AddNutritionButton />}
-          <Small>{DISCLAIMER}</Small>
-          <ReasonSections scores={view.scores} primary={primary} />
+          {hasUserValues(view.product) ? (
+            <>
+              <Small>Scored partly with values you entered, marked “yours” below.</Small>
+              <AddNutritionButton barcode={view.product.barcode} edit />
+            </>
+          ) : (
+            view.scores[primary].band === null && (
+              <AddNutritionButton barcode={view.product.barcode} />
+            )
+          )}
+          <Collapsible title="How the ratings were worked out">
+            <ReasonSections scores={view.scores} primary={primary} />
+          </Collapsible>
           <NutritionTable product={view.product} />
+          <Small>{DISCLAIMER}</Small>
           {view.product.off && <OffAttribution barcode={view.product.barcode} />}
         </Screen>
       );
   }
 }
 
-// ponytail: placeholder until Milestone 4 adds the manual-entry form.
-function AddNutritionButton() {
+const hasUserValues = (p: ResolvedProduct) =>
+  Object.values(p.nutrition).some((v) => v.source === 'user');
+
+function AddNutritionButton({ barcode, edit }: { barcode: string; edit?: boolean }) {
+  const router = useRouter();
   return (
-    <View style={{ gap: 6 }}>
-      <Button title="Add nutrition info" disabled />
-      <Small>Adding your own values is coming in the next update.</Small>
-    </View>
+    <Button
+      title={edit ? 'Edit your values' : 'Add nutrition info'}
+      secondary={edit}
+      onPress={() => router.push({ pathname: '/entry/[barcode]', params: { barcode } })}
+    />
   );
 }
 
@@ -259,25 +279,58 @@ const ROWS: [NutrientKey, string][] = [
   ['proteinG', 'g'],
   ['fruitVegPct', '%'],
   ['nutsLegumesMilletsPct', '%'],
+  ['addedSugarsG', 'g'],
+  ['addedFatG', 'g'],
 ];
 
-function NutritionTable({ product }: { product: ResolvedProduct }) {
+function SectionTitle({ children }: { children: string }) {
   const t = useTheme();
-  const [open, setOpen] = useState(false);
-  const per = product.productType.value === 'liquid' ? '100 ml' : '100 g';
   return (
-    <View style={[styles.card, { backgroundColor: t.card }]}>
+    <Text accessibilityRole="header" style={[styles.sectionTitle, { color: t.text }]}>
+      {children}
+    </Text>
+  );
+}
+
+/** A heading that shows or hides what is under it; details stay out of the way until asked for. */
+function Collapsible({
+  title,
+  initiallyOpen = false,
+  children,
+}: {
+  title: string;
+  initiallyOpen?: boolean;
+  children: ReactNode;
+}) {
+  const t = useTheme();
+  const [open, setOpen] = useState(initiallyOpen);
+  return (
+    <View style={{ gap: 10 }}>
       <Pressable
         accessibilityRole="button"
         accessibilityState={{ expanded: open }}
         onPress={() => setOpen(!open)}
+        style={styles.collapsible}
       >
-        <Text style={[styles.cardTitle, { color: t.text }]}>
-          {open ? '▾' : '▸'} Nutrition per {per}
-        </Text>
+        <Text style={[styles.cardTitle, { color: t.text, flex: 1 }]}>{title}</Text>
+        <Icon
+          sf={open ? 'chevron.up' : 'chevron.down'}
+          fallback={open ? '▾' : '▸'}
+          color={t.muted}
+        />
       </Pressable>
-      {open &&
-        ROWS.map(([key, unit]) => {
+      {open && children}
+    </View>
+  );
+}
+
+function NutritionTable({ product }: { product: ResolvedProduct }) {
+  const t = useTheme();
+  const per = product.productType.value === 'liquid' ? '100 ml' : '100 g';
+  return (
+    <Collapsible title={`Nutrition per ${per}`} initiallyOpen={hasUserValues(product)}>
+      <View style={[styles.card, { backgroundColor: t.card }]}>
+        {ROWS.map(([key, unit]) => {
           const v = product.nutrition[key];
           const label = LABEL_FOR[key];
           return (
@@ -293,7 +346,8 @@ function NutritionTable({ product }: { product: ResolvedProduct }) {
             </View>
           );
         })}
-    </View>
+      </View>
+    </Collapsible>
   );
 }
 
@@ -310,7 +364,9 @@ const styles = StyleSheet.create({
   },
   card: { borderRadius: 16, padding: 16, gap: 10 },
   cardTitle: { fontSize: 17, fontWeight: '600' },
-  verdict: { fontSize: 20, fontWeight: '700', lineHeight: 26 },
+  verdict: { fontSize: 17, fontWeight: '600', lineHeight: 23 },
+  sectionTitle: { fontSize: 20, fontWeight: '700' },
+  collapsible: { flexDirection: 'row', alignItems: 'center', paddingVertical: 4 },
   notice: { borderRadius: 8, padding: 12 },
   reason: { flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
   reasonText: { flex: 1, fontSize: 15, lineHeight: 21 },

@@ -14,6 +14,9 @@ export interface NutritionPer100 {
   fruitVegPct?: number;
   /** Nuts, legumes and millets content, % */
   nutsLegumesMilletsPct?: number;
+  /** Not used by INR, Nutri-Score or NOVA; kept for the warning-label method. */
+  addedSugarsG?: number;
+  addedFatG?: number;
 }
 
 export type NutrientKey = keyof NutritionPer100;
