@@ -1,10 +1,8 @@
-import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useState, type ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import {
-  Body,
   Button,
   DISCLAIMER,
   Icon,
@@ -13,17 +11,16 @@ import {
   Screen,
   Skeleton,
   Small,
-  Title,
 } from '../../components/ui';
-import { vegMark } from '../../data/normalize';
 import type { OffError } from '../../data/offClient';
 import type { ResolvedProduct } from '../../data/resolver';
 import { LABEL_FOR } from '../../scoring/inr';
 import type { NutrientKey, Reason } from '../../scoring/types';
 import { useTheme } from '../../theme';
 import { usePrimaryMethod, useProduct, type PrimaryMethod } from '../queries';
-import { joinAnd, productView, type ProductScores } from './productView';
-import { FactorLists, OverallBadge } from './Overview';
+import { joinAnd, productView, summaryFor, type ProductScores } from './productView';
+import { Hero, SummaryCard } from './Hero';
+import { NutritionCards } from './NutritionCards';
 import { METHOD_ORDER, ScoreTiles } from './ScoreTiles';
 
 const UNAVAILABLE: Record<OffError, string> = {
@@ -84,7 +81,7 @@ export function ProductScreen({ barcode }: { barcode: string }) {
     case 'not_food':
       return (
         <Screen>
-          <ProductHeader product={view.product} />
+          <Hero product={view.product} />
           <Message
             title={
               view.notFood === 'alcohol'
@@ -102,8 +99,8 @@ export function ProductScreen({ barcode }: { barcode: string }) {
     case 'not_enough_data':
       return (
         <Screen>
+          <Hero product={view.product} />
           {view.offError && <StaleNotice error={view.offError} />}
-          <ProductHeader product={view.product} />
           <Message
             title="Not enough data to rate this"
             body={
@@ -119,14 +116,25 @@ export function ProductScreen({ barcode }: { barcode: string }) {
         </Screen>
       );
 
-    case 'scored':
+    case 'scored': {
+      const summary = summaryFor(view.verdict, view.overall);
       return (
         <Screen>
+          <Hero
+            product={view.product}
+            overall={view.overall}
+            subtitle={view.processing ?? undefined}
+          />
           {view.offError && <StaleNotice error={view.offError} />}
-          <ProductHeader product={view.product} />
-          <OverallBadge overall={view.overall} />
-          {view.verdict && <Verdict text={view.verdict} />}
-          <FactorLists factors={view.factors} />
+          {summary && <SummaryCard {...summary} band={view.overall?.band} />}
+          <Collapsible
+            title="Nutrition"
+            suffix={`(per ${view.product.productType.value === 'liquid' ? '100 ml' : '100 g'})`}
+            plain
+            initiallyOpen
+          >
+            <NutritionCards product={view.product} limits={view.limits} />
+          </Collapsible>
           <SectionTitle>All ratings</SectionTitle>
           <ScoreTiles scores={view.scores} primary={primary} />
           {hasUserValues(view.product) ? (
@@ -139,15 +147,31 @@ export function ProductScreen({ barcode }: { barcode: string }) {
               <AddNutritionButton barcode={view.product.barcode} />
             )
           )}
-          <Collapsible title="How the ratings were worked out">
+          <Collapsible title="How the ratings were worked out" sf="info.circle">
             <ReasonSections scores={view.scores} primary={primary} />
           </Collapsible>
           <NutritionTable product={view.product} />
-          <Small>{DISCLAIMER}</Small>
-          {view.product.off && <OffAttribution barcode={view.product.barcode} />}
+          <Disclaimer barcode={view.product.off ? view.product.barcode : undefined} />
         </Screen>
       );
+    }
   }
+}
+
+/** Mockup footer: info icon with the disclaimer, then the Open Food Facts link and licence. */
+function Disclaimer({ barcode }: { barcode?: string }) {
+  const t = useTheme();
+  return (
+    <View style={{ gap: 10, paddingTop: 4 }}>
+      <View style={{ flexDirection: 'row', gap: 10 }}>
+        <Icon sf="info.circle" fallback="i" color={t.muted} size={18} />
+        <View style={{ flex: 1 }}>
+          <Small>{DISCLAIMER}</Small>
+        </View>
+      </View>
+      {barcode && <OffAttribution barcode={barcode} />}
+    </View>
+  );
 }
 
 const hasUserValues = (p: ResolvedProduct) =>
@@ -171,47 +195,6 @@ function StaleNotice({ error }: { error: OffError }) {
       <Text style={{ color: t.text }}>
         Showing saved data.{' '}
         {error === 'offline' ? 'You’re offline.' : 'Open Food Facts didn’t respond.'}
-      </Text>
-    </View>
-  );
-}
-
-function ProductHeader({ product }: { product: ResolvedProduct }) {
-  const t = useTheme();
-  const off = product.off;
-  const mark = vegMark(off?.labels_tags);
-  return (
-    <View style={styles.header}>
-      {off?.image_front_small_url && (
-        <Image
-          source={{ uri: off.image_front_small_url }}
-          style={[styles.image, { backgroundColor: t.card }]}
-          contentFit="contain"
-          transition={200}
-          accessibilityLabel="Product photo"
-        />
-      )}
-      <View style={{ flex: 1, gap: 4 }}>
-        <Title>{off?.product_name || 'Unnamed product'}</Title>
-        {off?.brands && <Body muted>{off.brands}</Body>}
-        <Small>Barcode {product.barcode}</Small>
-        {mark && <VegMark mark={mark} />}
-      </View>
-    </View>
-  );
-}
-
-/** India's printed marks: green square with a dot, brown square with a triangle. */
-function VegMark({ mark }: { mark: 'veg' | 'non-veg' }) {
-  const t = useTheme();
-  const color = mark === 'veg' ? '#1b8a2f' : '#7b3f00';
-  return (
-    <View style={styles.vegRow}>
-      <View style={[styles.vegSquare, { borderColor: color }]}>
-        <Text style={{ color, fontSize: 10, lineHeight: 12 }}>{mark === 'veg' ? '●' : '▲'}</Text>
-      </View>
-      <Text style={{ color: t.text }}>
-        {mark === 'veg' ? 'Vegetarian' : 'Non-vegetarian'} (mark on the pack)
       </Text>
     </View>
   );
@@ -265,11 +248,6 @@ function ReasonSections({ scores, primary }: { scores: ProductScores; primary: P
   );
 }
 
-function Verdict({ text }: { text: string }) {
-  const t = useTheme();
-  return <Text style={[styles.verdict, { color: t.text }]}>{text}</Text>;
-}
-
 const ROWS: [NutrientKey, string][] = [
   ['energyKcal', 'kcal'],
   ['sugarsG', 'g'],
@@ -292,31 +270,50 @@ function SectionTitle({ children }: { children: string }) {
   );
 }
 
-/** A heading that shows or hides what is under it; details stay out of the way until asked for. */
+/**
+ * Shows or hides what is under it. `plain` is a section heading; otherwise a bordered row with an
+ * icon, like a settings row.
+ */
 function Collapsible({
   title,
+  suffix,
+  sf,
+  plain,
   initiallyOpen = false,
   children,
 }: {
   title: string;
+  /** Quiet text after the title, e.g. "(per 100 g)". */
+  suffix?: string;
+  sf?: string;
+  plain?: boolean;
   initiallyOpen?: boolean;
   children: ReactNode;
 }) {
   const t = useTheme();
   const [open, setOpen] = useState(initiallyOpen);
   return (
-    <View style={{ gap: 10 }}>
+    <View style={{ gap: 12 }}>
       <Pressable
         accessibilityRole="button"
         accessibilityState={{ expanded: open }}
         onPress={() => setOpen(!open)}
-        style={styles.collapsible}
+        style={({ pressed }) => [
+          styles.collapsible,
+          !plain && [styles.rowButton, { borderColor: t.border }],
+          { opacity: pressed ? 0.6 : 1 },
+        ]}
       >
-        <Text style={[styles.cardTitle, { color: t.text, flex: 1 }]}>{title}</Text>
+        {sf && <Icon sf={sf} fallback="•" color={t.link} size={22} />}
+        <Text style={[plain ? styles.sectionTitle : styles.cardTitle, { color: t.text, flex: 1 }]}>
+          {title}
+          {suffix && <Text style={[styles.suffix, { color: t.muted }]}> {suffix}</Text>}
+        </Text>
         <Icon
-          sf={open ? 'chevron.up' : 'chevron.down'}
+          sf={open ? 'chevron.up' : plain ? 'chevron.down' : 'chevron.right'}
           fallback={open ? '▾' : '▸'}
           color={t.muted}
+          size={16}
         />
       </Pressable>
       {open && children}
@@ -328,7 +325,11 @@ function NutritionTable({ product }: { product: ResolvedProduct }) {
   const t = useTheme();
   const per = product.productType.value === 'liquid' ? '100 ml' : '100 g';
   return (
-    <Collapsible title={`Nutrition per ${per}`} initiallyOpen={hasUserValues(product)}>
+    <Collapsible
+      title={`Nutrition per ${per}`}
+      sf="list.bullet.rectangle"
+      initiallyOpen={hasUserValues(product)}
+    >
       <View style={[styles.card, { backgroundColor: t.card }]}>
         {ROWS.map(([key, unit]) => {
           const v = product.nutrition[key];
@@ -352,21 +353,12 @@ function NutritionTable({ product }: { product: ResolvedProduct }) {
 }
 
 const styles = StyleSheet.create({
-  header: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
-  image: { width: 80, height: 80, borderRadius: 12 },
-  vegRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  vegSquare: {
-    width: 16,
-    height: 16,
-    borderWidth: 1.5,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   card: { borderRadius: 16, padding: 16, gap: 10 },
-  cardTitle: { fontSize: 17, fontWeight: '600' },
-  verdict: { fontSize: 17, fontWeight: '600', lineHeight: 23 },
-  sectionTitle: { fontSize: 20, fontWeight: '700' },
-  collapsible: { flexDirection: 'row', alignItems: 'center', paddingVertical: 4 },
+  cardTitle: { fontSize: 16, fontWeight: '600' },
+  sectionTitle: { fontSize: 18, fontWeight: '700' },
+  suffix: { fontSize: 15, fontWeight: '400' },
+  collapsible: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 4 },
+  rowButton: { borderWidth: 1, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 16 },
   notice: { borderRadius: 8, padding: 12 },
   reason: { flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
   reasonText: { flex: 1, fontSize: 15, lineHeight: 21 },

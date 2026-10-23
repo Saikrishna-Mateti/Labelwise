@@ -1,7 +1,7 @@
 import type { OffProduct } from '../../../data/normalize';
 import { mergeProduct } from '../../../data/resolver';
 import fixtures from '../../../scoring/__tests__/fixtures/off-products.json';
-import { overallFor, productView } from '../productView';
+import { overallFor, productView, summaryFor } from '../productView';
 
 const off = fixtures as Record<string, OffProduct>;
 const ok = (p: OffProduct, offError?: 'offline') => ({
@@ -60,13 +60,18 @@ test('overall band follows the Nutri-Score grade, so an E never looks good', () 
   expect(overallFor(null)).toBeNull();
 });
 
-test('factors: Nutri-Score points, worst first; zero points against counts as good', () => {
-  const v = productView(ok(off['8902080104581'])); // Pepsi
-  if (v.kind !== 'scored') throw new Error(v.kind);
-  expect(v.overall?.label).toBe('Bad');
-  expect(v.factors[0]).toMatchObject({ label: 'Sugars', points: 9, max: 10, good: false });
-  expect(v.factors.find((f) => f.label === 'Saturated fat')).toMatchObject({
-    points: 0,
-    good: true,
+test('summary card: points lost first, then a line that follows the overall band', () => {
+  const verdict = 'Most points lost to total sugars and energy';
+  expect(summaryFor(verdict, overallFor('E'))).toEqual({
+    title: verdict,
+    note: 'Not a healthy choice for regular consumption.',
   });
+  expect(summaryFor(verdict, overallFor('C'))?.note).toBe('Best kept for occasional consumption.');
+  expect(summaryFor(verdict, overallFor('A'))?.note).toBe('A good choice for regular consumption.');
+  // Nothing lost: the band line becomes the title. No band and no verdict: no card.
+  expect(summaryFor(null, overallFor('A'))).toEqual({
+    title: 'A good choice for regular consumption.',
+  });
+  expect(summaryFor(verdict, null)).toEqual({ title: verdict, note: undefined });
+  expect(summaryFor(null, null)).toBeNull();
 });

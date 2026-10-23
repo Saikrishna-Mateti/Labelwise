@@ -140,3 +140,40 @@ test('scan history: newest first, with cached names, deletable', async () => {
   await store.deleteScan(scans[0].id);
   expect((await store.listScans()).map((s) => s.barcode)).toEqual([PARLE_G]);
 });
+
+test('saved products: toggled by barcode, saved once, newest first', async () => {
+  await store.putCached(PARLE_G, off[PARLE_G], clock);
+  await store.setSaved(PARLE_G, true, 1);
+  await store.setSaved(PARLE_G, true, 5); // saving again keeps the first time
+  await store.setSaved('8900000000001', true, 2);
+  expect(await store.isSaved(PARLE_G)).toBe(true);
+  expect(
+    (await store.listSaved()).map((s) => [s.barcode, s.scannedAt, s.off?.code ?? null]),
+  ).toEqual([
+    ['8900000000001', 2, null],
+    [PARLE_G, 1, PARLE_G],
+  ]);
+  await store.setSaved(PARLE_G, false, 6);
+  expect(await store.isSaved(PARLE_G)).toBe(false);
+});
+
+test('clearing history leaves saved products, cached products and the user’s own entries', async () => {
+  await store.putCached(PARLE_G, off[PARLE_G], clock);
+  await store.putUserEntry(PARLE_G, {
+    nutrition: { energyKcal: 400 },
+    productType: 'solid',
+    updatedAt: 1,
+  });
+  await store.addScan(PARLE_G, 1);
+  await store.addScan('8900000000001', 2);
+  await store.setSaved(PARLE_G, true, 3);
+
+  await store.clearScans();
+  expect(await store.listScans()).toEqual([]);
+  expect((await store.listSaved()).map((s) => s.barcode)).toEqual([PARLE_G]);
+  expect(await store.getCached(PARLE_G)).not.toBeNull();
+  expect(await store.getUserEntry(PARLE_G)).not.toBeNull();
+
+  await store.clearSaved();
+  expect(await store.listSaved()).toEqual([]);
+});

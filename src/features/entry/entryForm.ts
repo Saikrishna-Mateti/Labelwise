@@ -4,9 +4,7 @@
 import type { UserEntry } from '../../data/db';
 import type { ResolvedProduct } from '../../data/resolver';
 import type { NutrientKey, NutritionPer100, ProductType } from '../../scoring/types';
-
-/** Salt is 40% sodium: "5 g of salt per day (equivalent to 2 g of sodium)", ICMR-NIN DGI 2024. */
-export const SALT_PER_SODIUM = 2.5;
+import { SALT_PER_SODIUM } from '../../scoring/units';
 
 export type SodiumUnit = 'sodium_mg' | 'salt_g';
 

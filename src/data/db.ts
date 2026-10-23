@@ -49,6 +49,10 @@ CREATE TABLE IF NOT EXISTS scans (
   scanned_at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS scans_scanned_at ON scans (scanned_at);
+CREATE TABLE IF NOT EXISTS saved (
+  barcode TEXT PRIMARY KEY NOT NULL,
+  saved_at INTEGER NOT NULL
+);
 CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY NOT NULL,
   value TEXT NOT NULL
@@ -56,6 +60,29 @@ CREATE TABLE IF NOT EXISTS settings (
 `;
 
 export function createStore(db: Db) {
+  /** Rows of (id, barcode, scannedAt) joined with the cached OFF record and the user's entry. */
+  async function withProducts(sql: string, ...params: (string | number)[]): Promise<Scan[]> {
+    const rows = await db.getAllAsync<{
+      id: number;
+      barcode: string;
+      scannedAt: number;
+      offJson: string | null;
+      userJson: string | null;
+    }>(
+      `SELECT r.id, r.barcode, r.scannedAt, p.json AS offJson, u.json AS userJson
+       FROM (${sql}) r
+       LEFT JOIN off_products p ON p.barcode = r.barcode
+       LEFT JOIN user_entries u ON u.barcode = r.barcode
+       ORDER BY r.scannedAt DESC, r.id DESC`,
+      ...params,
+    );
+    return rows.map(({ offJson, userJson, ...r }) => ({
+      ...r,
+      off: offJson ? (JSON.parse(offJson) as OffProduct) : null,
+      user: userJson ? (JSON.parse(userJson) as UserEntry) : null,
+    }));
+  }
+
   return {
     init: () => db.execAsync(SCHEMA),
 
@@ -103,26 +130,39 @@ export function createStore(db: Db) {
       );
     },
 
-    async listScans(limit = 200): Promise<Scan[]> {
-      const rows = await db.getAllAsync<{
-        id: number;
-        barcode: string;
-        scannedAt: number;
-        offJson: string | null;
-        userJson: string | null;
-      }>(
-        `SELECT s.id, s.barcode, s.scanned_at AS scannedAt, p.json AS offJson, u.json AS userJson
-         FROM scans s
-         LEFT JOIN off_products p ON p.barcode = s.barcode
-         LEFT JOIN user_entries u ON u.barcode = s.barcode
+    listScans(limit = 200): Promise<Scan[]> {
+      return withProducts(
+        `SELECT s.id, s.barcode, s.scanned_at AS scannedAt FROM scans s
          ORDER BY s.scanned_at DESC, s.id DESC LIMIT ?`,
         limit,
       );
-      return rows.map(({ offJson, userJson, ...r }) => ({
-        ...r,
-        off: offJson ? (JSON.parse(offJson) as OffProduct) : null,
-        user: userJson ? (JSON.parse(userJson) as UserEntry) : null,
-      }));
+    },
+
+    /** Saved products, newest first; `id` is the row id and `scannedAt` the time it was saved. */
+    listSaved(): Promise<Scan[]> {
+      return withProducts(
+        `SELECT s.rowid AS id, s.barcode, s.saved_at AS scannedAt FROM saved s
+         ORDER BY s.saved_at DESC`,
+      );
+    },
+
+    async isSaved(barcode: string): Promise<boolean> {
+      return !!(await db.getFirstAsync('SELECT 1 FROM saved WHERE barcode = ?', barcode));
+    },
+
+    async setSaved(barcode: string, saved: boolean, at: number): Promise<void> {
+      await (saved
+        ? db.runAsync('INSERT OR IGNORE INTO saved (barcode, saved_at) VALUES (?, ?)', barcode, at)
+        : db.runAsync('DELETE FROM saved WHERE barcode = ?', barcode));
+    },
+
+    /** Empties the history only; cached products and the user's own entries stay. */
+    async clearScans(): Promise<void> {
+      await db.runAsync('DELETE FROM scans');
+    },
+
+    async clearSaved(): Promise<void> {
+      await db.runAsync('DELETE FROM saved');
     },
 
     async deleteScan(id: number): Promise<void> {

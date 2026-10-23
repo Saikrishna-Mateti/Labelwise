@@ -10,7 +10,7 @@ const light = {
   onPrimary: '#ffffff',
   link: '#0a58ca',
   pro: '#0b6e4f',
-  con: '#b3261e',
+  con: '#b4423c',
   star: '#c98a00',
   skeleton: '#e4e4ea',
   warningBg: '#fff4d6',
@@ -28,7 +28,7 @@ const dark: Theme = {
   onPrimary: '#002114',
   link: '#6ea8fe',
   pro: '#4cc38a',
-  con: '#ff7a6e',
+  con: '#f08a80',
   star: '#ffc93c',
   skeleton: '#2c2c2e',
   warningBg: '#3d3000',
@@ -40,24 +40,66 @@ export function useTheme(): Theme {
 
 /** Band colours always appear next to the band's letter or number, never alone. */
 export const NUTRISCORE_COLORS: Record<string, { bg: string; fg: string }> = {
-  A: { bg: '#038141', fg: '#ffffff' },
-  B: { bg: '#85bb2f', fg: '#111111' },
-  C: { bg: '#fecb02', fg: '#111111' },
-  D: { bg: '#ee8100', fg: '#111111' },
-  E: { bg: '#e63e11', fg: '#ffffff' },
+  // Official Nutri-Score hues, softened to match the app; the letter always carries the grade.
+  A: { bg: '#3f8f5f', fg: '#ffffff' },
+  B: { bg: '#a3c26e', fg: '#1f2a10' },
+  C: { bg: '#e8c868', fg: '#3a2e05' },
+  D: { bg: '#e6a466', fg: '#3a2105' },
+  E: { bg: '#d9726d', fg: '#ffffff' },
 };
 
 export const NOVA_COLORS: Record<number, { bg: string; fg: string }> = {
-  1: { bg: '#038141', fg: '#ffffff' },
-  2: { bg: '#fecb02', fg: '#111111' },
-  3: { bg: '#ee8100', fg: '#111111' },
-  4: { bg: '#e63e11', fg: '#ffffff' },
+  1: { bg: '#3f8f5f', fg: '#ffffff' },
+  2: { bg: '#e8c868', fg: '#3a2e05' },
+  3: { bg: '#e6a466', fg: '#3a2105' },
+  4: { bg: '#d9726d', fg: '#ffffff' },
 };
 
 /** Overall band colours (dark green, light green, orange, red), always shown with the band word. */
 export const OVERALL_COLORS: Record<'excellent' | 'good' | 'poor' | 'bad', string> = {
-  excellent: '#038141',
-  good: '#85bb2f',
-  poor: '#ee8100',
-  bad: '#e63e11',
+  excellent: '#3f9a6e',
+  good: '#8db35a',
+  poor: '#e0954a',
+  bad: '#dc6460',
 };
+
+/** A see-through version of a #rrggbb colour, for tinted card backgrounds in light and dark mode. */
+export const tint = (hex: string, opacity: number) =>
+  hex +
+  Math.round(opacity * 255)
+    .toString(16)
+    .padStart(2, '0');
+
+/** Accent per nutrient card and rating tile; decoration only, the words carry the meaning. */
+export const ACCENT = {
+  saturatedFat: '#d9726d',
+  energy: '#dca54c',
+  sugars: '#9479c4',
+  protein: '#4f9e77',
+  inr: '#5b8fd6',
+  nutriscore: '#d9726d',
+  nova: '#9479c4',
+};
+
+type Band = keyof typeof OVERALL_COLORS;
+
+/** Soft header/pill background and readable text per band (text ≥ 4.5:1 on its soft colour). */
+const BAND_SHADES: Record<'light' | 'dark', Record<Band, { soft: string; text: string }>> = {
+  light: {
+    excellent: { soft: '#edf6f0', text: '#2e6f50' },
+    good: { soft: '#f2f7ea', text: '#4a6a24' },
+    poor: { soft: '#fbf3ea', text: '#95551c' },
+    bad: { soft: '#fbefee', text: '#a8403c' },
+  },
+  dark: {
+    excellent: { soft: '#13231a', text: '#7cc49d' },
+    good: { soft: '#1d2414', text: '#b4cf8c' },
+    poor: { soft: '#2b2014', text: '#e6b07a' },
+    bad: { soft: '#2e1a1a', text: '#eb9b96' },
+  },
+};
+
+export function useBandShades(band: Band | undefined) {
+  const scheme = useColorScheme() === 'dark' ? 'dark' : 'light';
+  return band ? { dot: OVERALL_COLORS[band], ...BAND_SHADES[scheme][band] } : undefined;
+}

@@ -6,9 +6,9 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Body } from '../../components/ui';
 import type { ScoreResult } from '../../scoring/types';
-import { NOVA_COLORS, NUTRISCORE_COLORS, OVERALL_COLORS, useTheme } from '../../theme';
+import { ACCENT, NOVA_COLORS, NUTRISCORE_COLORS, tint, useBandShades, useTheme } from '../../theme';
 import type { PrimaryMethod } from '../queries';
-import { EXPLAIN, overallFor, type ProductScores } from './productView';
+import { EXPLAIN, NOVA_GROUP, overallFor, type ProductScores } from './productView';
 
 type Method = keyof ProductScores;
 
@@ -54,15 +54,22 @@ function LetterBox({ text, colors }: { text: string; colors: { bg: string; fg: s
 }
 
 /** Text form of a score, also used as its accessibility label. */
-function describe(method: Method, r: ScoreResult): { text: string; note?: string } {
-  const estimated = r.source === 'estimated' && r.value !== null ? 'estimated' : undefined;
+function describe(
+  method: Method,
+  r: ScoreResult,
+): { text: string; note?: string; estimated?: boolean } {
+  const estimated = r.source === 'estimated' && r.value !== null;
   if (method === 'inr') {
     return r.value !== null
-      ? { text: `${r.value} of 5 stars`, note: estimated }
+      ? { text: `${r.value} of 5 stars`, estimated }
       : { text: r.band ?? 'Not available' };
   }
-  if (method === 'nutriscore') return { text: r.band ?? 'Not available' };
-  return r.value !== null ? { text: `NOVA ${r.value}`, note: estimated } : { text: 'Unknown' };
+  if (method === 'nutriscore') {
+    return r.band ? { text: `Grade ${r.band}`, note: 'A (best) to E' } : { text: 'Not available' };
+  }
+  return r.value !== null
+    ? { text: `NOVA ${r.value}`, note: NOVA_GROUP[r.value], estimated }
+    : { text: 'Unknown' };
 }
 
 function TileValue({ method, r }: { method: Method; r: ScoreResult }) {
@@ -86,27 +93,41 @@ export function ScoreTiles({ scores, primary }: { scores: ProductScores; primary
       <View style={styles.tiles}>
         {METHOD_ORDER[primary].map((m) => {
           const r = scores[m];
-          const { text, note } = describe(m, r);
+          const { text, note, estimated } = describe(m, r);
           const selected = open === m;
           return (
             <Pressable
               key={m}
               accessibilityRole="button"
-              accessibilityLabel={`${TILE_LABEL[m]}: ${text}${note ? `, ${note}` : ''}${m === primary ? ', main score' : ''}`}
+              accessibilityLabel={`${TILE_LABEL[m]}: ${[text, note, estimated && 'estimated'].filter(Boolean).join(', ')}${m === primary ? ', main score' : ''}`}
               accessibilityHint="Explains this score"
               accessibilityState={{ expanded: selected }}
               onPress={() => setOpen(selected ? null : m)}
               style={[
                 styles.tile,
-                { backgroundColor: t.card, borderColor: selected ? t.primary : t.card },
+                {
+                  backgroundColor: tint(ACCENT[m], 0.08),
+                  borderColor: selected ? ACCENT[m] : 'transparent',
+                },
               ]}
             >
-              <Text style={[styles.tileLabel, { color: t.muted }]} numberOfLines={2}>
+              <Text style={[styles.tileLabel, { color: t.text }]} numberOfLines={2}>
                 {TILE_LABEL[m]}
               </Text>
               <TileValue method={m} r={r} />
               <Text style={[styles.tileText, { color: t.text }]}>{text}</Text>
-              {note && <Text style={[styles.tileNote, { color: t.muted }]}>{note}</Text>}
+              {/* One line: the text shrinks a little rather than wrapping at the hyphen. */}
+              {note && (
+                <Text
+                  style={[styles.tileNote, { color: t.muted }]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.75}
+                >
+                  {note}
+                </Text>
+              )}
+              {estimated && <Text style={[styles.tileNote, { color: t.muted }]}>estimated</Text>}
             </Pressable>
           );
         })}
@@ -116,44 +137,57 @@ export function ScoreTiles({ scores, primary }: { scores: ProductScores; primary
   );
 }
 
-/** Small badge for list rows: the overall band, else the main score or the next one with a value. */
-export function CompactScore({
-  scores,
-  primary,
+/** Small pill for list rows. A dot is optional; the words always carry the meaning. */
+export function Badge({
+  label,
+  color,
+  background,
+  dot,
+  accessibilityLabel,
 }: {
-  scores: ProductScores;
-  primary: PrimaryMethod;
+  label: string;
+  color: string;
+  background: string;
+  dot?: string;
+  accessibilityLabel?: string;
 }) {
-  const t = useTheme();
-  const overall = overallFor(scores.nutriscore.band);
-  if (overall) {
-    return (
-      <View accessible accessibilityLabel={`Overall: ${overall.label}`} style={styles.compact}>
-        <View style={[styles.compactDot, { backgroundColor: OVERALL_COLORS[overall.band] }]} />
-        <Text style={[styles.tileNote, { color: t.text }]}>{overall.label}</Text>
-      </View>
-    );
-  }
-  const method = METHOD_ORDER[primary].find((m) => scores[m].band !== null && m !== 'nova');
-  if (!method) return null;
-  const r = scores[method];
   return (
     <View
       accessible
-      accessibilityLabel={`${TILE_LABEL[method]}: ${describe(method, r).text}`}
-      style={styles.compact}
+      accessibilityLabel={accessibilityLabel ?? label}
+      style={[styles.badge, { backgroundColor: background }]}
     >
-      {method === 'inr' && r.value !== null ? (
-        <Text style={[styles.compactStars, { color: t.text }]}>
-          <Text style={{ color: t.star }}>★</Text> {r.value}
-        </Text>
-      ) : (
-        <TileValue method={method} r={r} />
-      )}
-      <Text style={[styles.tileNote, { color: t.muted }]}>
-        {method === 'inr' ? 'India' : 'Nutri'}
-      </Text>
+      {dot && <View style={[styles.badgeDot, { backgroundColor: dot }]} />}
+      <Text style={[styles.badgeText, { color }]}>{label}</Text>
     </View>
+  );
+}
+
+/** The overall band as a small pill, else the India rating when there is no Nutri-Score. */
+export function ScoreBadge({ scores }: { scores: ProductScores }) {
+  const t = useTheme();
+  const overall = overallFor(scores.nutriscore.band);
+  const shades = useBandShades(overall?.band);
+  if (overall && shades) {
+    return (
+      <Badge
+        label={overall.label}
+        color={shades.text}
+        background={tint(shades.dot, 0.12)}
+        dot={shades.dot}
+        accessibilityLabel={`Overall: ${overall.label}`}
+      />
+    );
+  }
+  const { value } = scores.inr;
+  if (value === null) return null;
+  return (
+    <Badge
+      label={`${value} of 5 stars`}
+      color={t.text}
+      background={t.skeleton}
+      accessibilityLabel={`India rating (draft): ${value} of 5 stars`}
+    />
   );
 }
 
@@ -163,14 +197,14 @@ const styles = StyleSheet.create({
   tiles: { flexDirection: 'row', gap: 8 },
   tile: {
     flex: 1,
-    borderRadius: 14,
+    borderRadius: 18,
     borderWidth: 2,
-    padding: 10,
-    gap: 6,
+    padding: 12,
+    gap: 8,
     alignItems: 'flex-start',
   },
-  tileLabel: { fontSize: 12, fontWeight: '600' },
-  tileText: { fontSize: 14, fontWeight: '600' },
+  tileLabel: { fontSize: 14, fontWeight: '600' },
+  tileText: { fontSize: 16, fontWeight: '700' },
   tileNote: { fontSize: 12 },
   letterBox: {
     borderRadius: 6,
@@ -181,7 +215,15 @@ const styles = StyleSheet.create({
   },
   letter: { fontSize: 18, fontWeight: '800' },
   none: { fontSize: 18 },
-  compact: { alignItems: 'center', justifyContent: 'center', minWidth: 48, gap: 2 },
-  compactStars: { fontSize: 16, fontWeight: '700' },
-  compactDot: { width: 18, height: 18, borderRadius: 9 },
+  badge: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  badgeDot: { width: 8, height: 8, borderRadius: 4 },
+  badgeText: { fontSize: 12, fontWeight: '600' },
 });
