@@ -25,6 +25,7 @@ export default function RootLayout() {
               sheetCornerRadius: 24,
             }}
           />
+          <Stack.Screen name="entry/[barcode]" options={{ presentation: 'modal' }} />
         </Stack>
         <StatusBar style="auto" />
       </QueryClientProvider>

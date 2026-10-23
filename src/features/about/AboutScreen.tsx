@@ -50,6 +50,11 @@ export function AboutScreen() {
       </Section>
 
       <Section title="About the scores">
+        <Body>
+          Overall (Excellent, Good, Poor, Bad): Labelwise’s plain-language reading of the
+          Nutri-Score grade. A is Excellent, B is Good, C and D are Poor, E is Bad. It doesn’t yet
+          include additives.
+        </Body>
         <Body>Indian Nutrition Rating: {EXPLAIN.inr}</Body>
         <Body>Nutri-Score: {EXPLAIN.nutriscore}</Body>
         <Body>

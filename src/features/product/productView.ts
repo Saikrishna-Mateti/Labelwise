@@ -4,7 +4,7 @@ import { notFoodKind, type NotFoodKind } from '../../data/normalize';
 import type { Resolution, ResolvedProduct } from '../../data/resolver';
 import { toScoringInput } from '../../data/resolver';
 import type { OffError } from '../../data/offClient';
-import { biggestPointsAgainst, inr, LABEL_FOR, RISK } from '../../scoring/inr';
+import { biggestPointsAgainst, inr, inrBreakdown, LABEL_FOR, RISK, UNIT } from '../../scoring/inr';
 import { nova } from '../../scoring/nova';
 import { nutriscore } from '../../scoring/nutriscore';
 import type { ScoreResult, ScoringInput } from '../../scoring/types';
@@ -28,6 +28,10 @@ export type ProductView =
       scores: ProductScores;
       /** One-line summary, e.g. "Most points lost to total sugars and energy · Ultra-processed". */
       verdict: string | null;
+      /** Labelwise's overall band, from the Nutri-Score grade. Null without a grade. */
+      overall: Overall | null;
+      /** What raised or lowered the overall rating, per nutrient. */
+      factors: Factor[];
       offError?: OffError;
     };
 
@@ -53,7 +57,102 @@ export function productView(r: Resolution): ProductView {
       .map((k) => LABEL_FOR[k]);
     return { kind: 'not_enough_data', product, missing, offError };
   }
-  return { kind: 'scored', product, scores, verdict: verdict(input, scores.nova), offError };
+  const overall = overallFor(scores.nutriscore.band);
+  return {
+    kind: 'scored',
+    product,
+    scores,
+    verdict: verdict(input, scores.nova),
+    overall,
+    factors: factors(input, overall !== null),
+    offError,
+  };
+}
+
+export type OverallBand = 'excellent' | 'good' | 'poor' | 'bad';
+
+export interface Overall {
+  band: OverallBand;
+  label: string;
+  grade: string;
+}
+
+/** Labelwise's own mapping (docs/sources/README.md): a grade E product can never look good. */
+const BAND_FOR_GRADE: Record<string, OverallBand> = {
+  A: 'excellent',
+  B: 'good',
+  C: 'poor',
+  D: 'poor',
+  E: 'bad',
+};
+
+const BAND_LABEL: Record<OverallBand, string> = {
+  excellent: 'Excellent',
+  good: 'Good',
+  poor: 'Poor',
+  bad: 'Bad',
+};
+
+export function overallFor(grade: string | null): Overall | null {
+  const band = grade ? BAND_FOR_GRADE[grade] : undefined;
+  return band && grade ? { band, label: BAND_LABEL[band], grade } : null;
+}
+
+/** One nutrient's share of a score. `good` = it helped (or cost nothing), else it counted against. */
+export interface Factor {
+  label: string;
+  /** e.g. "10.9 g per 100 ml"; null when the source gives no value. */
+  amount: string | null;
+  points: number;
+  max: number;
+  good: boolean;
+  /** "against" points or "in favour" points. */
+  kind: 'against' | 'for';
+}
+
+const NUTRISCORE_LABEL: Record<string, string> = {
+  energy: 'Energy',
+  sugars: 'Sugars',
+  saturated_fat: 'Saturated fat',
+  salt: 'Salt',
+  non_nutritive_sweeteners: 'Sweeteners',
+  proteins: 'Protein',
+  fiber: 'Fibre',
+  fruits_vegetables_legumes: 'Fruit, vegetables and legumes',
+};
+
+const fmt = (n: number) => String(Number(n.toFixed(1)));
+const capitalise = (s: string) => s[0].toUpperCase() + s.slice(1);
+
+/**
+ * Nutri-Score's own breakdown when the overall band comes from it, otherwise the INR draft points.
+ * Points against with 0 points count as good ("no points lost"); points in favour with 0 are left out.
+ */
+export function factors(input: ScoringInput, fromNutriscore: boolean): Factor[] {
+  const per = input.productType === 'liquid' ? 'per 100 ml' : 'per 100 g';
+  const ns = input.off?.nutriscoreComponents;
+  const rows: Factor[] =
+    fromNutriscore && ns?.length
+      ? ns.map((c) => ({
+          label: NUTRISCORE_LABEL[c.id] ?? capitalise(c.id.replace(/_/g, ' ')),
+          amount:
+            c.value === null || c.unit === 'number' ? null : `${fmt(c.value)} ${c.unit} ${per}`,
+          points: c.points,
+          max: c.pointsMax,
+          kind: c.kind === 'negative' ? 'against' : 'for',
+          good: c.kind === 'negative' ? c.points === 0 : true,
+        }))
+      : (inrBreakdown(input)?.components ?? []).map((c) => ({
+          label: capitalise(LABEL_FOR[c.key]),
+          amount: `${fmt(input.nutrition[c.key]!)} ${UNIT[c.key]} ${per}`,
+          points: c.points,
+          max: c.max,
+          kind: c.kind,
+          good: c.kind === 'against' ? c.points === 0 : true,
+        }));
+  return rows
+    .filter((f) => f.kind === 'against' || f.points > 0)
+    .sort((a, b) => b.points / b.max - a.points / a.max);
 }
 
 export const joinAnd = (items: string[]) =>

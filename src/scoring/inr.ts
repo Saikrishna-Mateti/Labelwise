@@ -158,9 +158,11 @@ export const LABEL_FOR: Record<NutrientKey, string> = {
   proteinG: 'protein',
   fruitVegPct: 'fruit and vegetable %',
   nutsLegumesMilletsPct: 'nuts, legumes and millets %',
+  addedSugarsG: 'added sugars',
+  addedFatG: 'added fat',
 };
 
-const UNIT: Record<NutrientKey, string> = {
+export const UNIT: Record<NutrientKey, string> = {
   energyKcal: 'kcal',
   sugarsG: 'g',
   saturatedFatG: 'g',
@@ -169,6 +171,8 @@ const UNIT: Record<NutrientKey, string> = {
   proteinG: 'g',
   fruitVegPct: '%',
   nutsLegumesMilletsPct: '%',
+  addedSugarsG: 'g',
+  addedFatG: 'g',
 };
 
 const fmt = (n: number) => String(Number(n.toFixed(1)));

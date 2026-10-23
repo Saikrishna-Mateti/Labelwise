@@ -2,9 +2,9 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { getStore } from '../data/db';
+import { getStore, type UserEntry } from '../data/db';
 import { fetchProduct } from '../data/offClient';
-import { resolveProduct } from '../data/resolver';
+import { mergeProduct, resolveProduct, type Resolution } from '../data/resolver';
 
 export function useProduct(barcode: string) {
   const qc = useQueryClient();
@@ -15,6 +15,30 @@ export function useProduct(barcode: string) {
       // The scan was recorded before the product was cached; refresh history so it shows the product.
       qc.invalidateQueries({ queryKey: ['scans'] });
       return result;
+    },
+  });
+}
+
+/** Saves the user's values and rescores at once from what is already loaded; no network call. */
+export function useSaveEntry(barcode: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (values: Omit<UserEntry, 'updatedAt'>) => {
+      const entry = { ...values, updatedAt: Date.now() };
+      await (await getStore()).putUserEntry(barcode, entry);
+      return entry;
+    },
+    onSuccess: (entry) => {
+      qc.setQueryData<Resolution>(['product', barcode], (prev) => {
+        const ok =
+          prev?.status === 'ok' ? (prev as Extract<Resolution, { status: 'ok' }>) : undefined;
+        const product = mergeProduct(barcode, ok?.product.off, entry);
+        product.offFetchedAt = ok?.product.offFetchedAt;
+        return ok?.offError
+          ? { status: 'ok', product, offError: ok.offError }
+          : { status: 'ok', product };
+      });
+      qc.invalidateQueries({ queryKey: ['scans'] });
     },
   });
 }
