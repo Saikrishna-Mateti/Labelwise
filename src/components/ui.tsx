@@ -156,19 +156,26 @@ export function Small({ children }: { children: ReactNode }) {
 
 export const DISCLAIMER = 'Scores are for information only and are not medical or dietary advice.';
 
-/** ODbL attribution, required wherever OFF data is shown. */
+/** ODbL attribution, required wherever OFF data is shown: link first, licence line under it. */
 export function OffAttribution({ barcode }: { barcode?: string }) {
+  const t = useTheme();
+  const url = barcode
+    ? `https://world.openfoodfacts.org/product/${barcode}`
+    : 'https://world.openfoodfacts.org';
   return (
     <View style={styles.attribution}>
+      <Pressable
+        accessibilityRole="link"
+        accessibilityHint="Opens in your browser"
+        onPress={() => Linking.openURL(url)}
+        style={({ pressed }) => [styles.linkRow, { opacity: pressed ? 0.6 : 1 }]}
+      >
+        <Text style={[styles.small, styles.underline, { color: t.link }]}>
+          {barcode ? 'View this product on Open Food Facts' : 'openfoodfacts.org'}
+        </Text>
+        <Icon sf="arrow.up.right.square" fallback="↗" color={t.link} size={15} />
+      </Pressable>
       <Small>Data © Open Food Facts contributors (ODbL)</Small>
-      <Link
-        title={barcode ? 'View this product on Open Food Facts' : 'openfoodfacts.org'}
-        url={
-          barcode
-            ? `https://world.openfoodfacts.org/product/${barcode}`
-            : 'https://world.openfoodfacts.org'
-        }
-      />
     </View>
   );
 }
@@ -182,4 +189,6 @@ const styles = StyleSheet.create({
   buttonText: { fontSize: 16, fontWeight: '600' },
   message: { gap: 12, paddingTop: 24 },
   attribution: { gap: 4 },
+  linkRow: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start' },
+  underline: { textDecorationLine: 'underline' },
 });

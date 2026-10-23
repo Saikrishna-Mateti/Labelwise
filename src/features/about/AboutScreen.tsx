@@ -55,6 +55,10 @@ export function AboutScreen() {
           Nutri-Score grade. A is Excellent, B is Good, C and D are Poor, E is Bad. It doesn’t yet
           include additives.
         </Body>
+        <Body>
+          High / OK: compared with the ICMR-NIN Dietary Guidelines for Indians 2024 limits for
+          energy, added sugar and added fat. Saturated fat and total sugars have no such limit.
+        </Body>
         <Body>Indian Nutrition Rating: {EXPLAIN.inr}</Body>
         <Body>Nutri-Score: {EXPLAIN.nutriscore}</Body>
         <Body>

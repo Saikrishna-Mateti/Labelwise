@@ -4,10 +4,11 @@ import { notFoodKind, type NotFoodKind } from '../../data/normalize';
 import type { Resolution, ResolvedProduct } from '../../data/resolver';
 import { toScoringInput } from '../../data/resolver';
 import type { OffError } from '../../data/offClient';
-import { biggestPointsAgainst, inr, inrBreakdown, LABEL_FOR, RISK, UNIT } from '../../scoring/inr';
+import { biggestPointsAgainst, inr, LABEL_FOR, RISK } from '../../scoring/inr';
 import { nova } from '../../scoring/nova';
 import { nutriscore } from '../../scoring/nutriscore';
 import type { ScoreResult, ScoringInput } from '../../scoring/types';
+import { checkLimits, type LimitCheck } from '../../scoring/warnings';
 
 export interface ProductScores {
   inr: ScoreResult;
@@ -26,12 +27,14 @@ export type ProductView =
       kind: 'scored';
       product: ResolvedProduct;
       scores: ProductScores;
-      /** One-line summary, e.g. "Most points lost to total sugars and energy · Ultra-processed". */
+      /** One-line summary, e.g. "Most points lost to total sugars and energy". */
       verdict: string | null;
+      /** "Ultra-processed" (NOVA 4 from OFF) or "Likely ultra-processed" (estimated); else null. */
+      processing: string | null;
+      /** ICMR-NIN 2024 limits: energy, salt, added sugar, added fat (salt is checked but not shown yet). */
+      limits: LimitCheck[];
       /** Labelwise's overall band, from the Nutri-Score grade. Null without a grade. */
       overall: Overall | null;
-      /** What raised or lowered the overall rating, per nutrient. */
-      factors: Factor[];
       offError?: OffError;
     };
 
@@ -62,9 +65,10 @@ export function productView(r: Resolution): ProductView {
     kind: 'scored',
     product,
     scores,
-    verdict: verdict(input, scores.nova),
+    verdict: verdict(input),
+    processing: processing(scores.nova),
+    limits: checkLimits(input),
     overall,
-    factors: factors(input, overall !== null),
     offError,
   };
 }
@@ -98,78 +102,47 @@ export function overallFor(grade: string | null): Overall | null {
   return band && grade ? { band, label: BAND_LABEL[band], grade } : null;
 }
 
-/** One nutrient's share of a score. `good` = it helped (or cost nothing), else it counted against. */
-export interface Factor {
-  label: string;
-  /** e.g. "10.9 g per 100 ml"; null when the source gives no value. */
-  amount: string | null;
-  points: number;
-  max: number;
-  good: boolean;
-  /** "against" points or "in favour" points. */
-  kind: 'against' | 'for';
-}
-
-const NUTRISCORE_LABEL: Record<string, string> = {
-  energy: 'Energy',
-  sugars: 'Sugars',
-  saturated_fat: 'Saturated fat',
-  salt: 'Salt',
-  non_nutritive_sweeteners: 'Sweeteners',
-  proteins: 'Protein',
-  fiber: 'Fibre',
-  fruits_vegetables_legumes: 'Fruit, vegetables and legumes',
-};
-
-const fmt = (n: number) => String(Number(n.toFixed(1)));
-const capitalise = (s: string) => s[0].toUpperCase() + s.slice(1);
-
-/**
- * Nutri-Score's own breakdown when the overall band comes from it, otherwise the INR draft points.
- * Points against with 0 points count as good ("no points lost"); points in favour with 0 are left out.
- */
-export function factors(input: ScoringInput, fromNutriscore: boolean): Factor[] {
-  const per = input.productType === 'liquid' ? 'per 100 ml' : 'per 100 g';
-  const ns = input.off?.nutriscoreComponents;
-  const rows: Factor[] =
-    fromNutriscore && ns?.length
-      ? ns.map((c) => ({
-          label: NUTRISCORE_LABEL[c.id] ?? capitalise(c.id.replace(/_/g, ' ')),
-          amount:
-            c.value === null || c.unit === 'number' ? null : `${fmt(c.value)} ${c.unit} ${per}`,
-          points: c.points,
-          max: c.pointsMax,
-          kind: c.kind === 'negative' ? 'against' : 'for',
-          good: c.kind === 'negative' ? c.points === 0 : true,
-        }))
-      : (inrBreakdown(input)?.components ?? []).map((c) => ({
-          label: capitalise(LABEL_FOR[c.key]),
-          amount: `${fmt(input.nutrition[c.key]!)} ${UNIT[c.key]} ${per}`,
-          points: c.points,
-          max: c.max,
-          kind: c.kind,
-          good: c.kind === 'against' ? c.points === 0 : true,
-        }));
-  return rows
-    .filter((f) => f.kind === 'against' || f.points > 0)
-    .sort((a, b) => b.points / b.max - a.points / a.max);
-}
-
 export const joinAnd = (items: string[]) =>
   items.length < 2 ? items.join('') : `${items.slice(0, -1).join(', ')} and ${items.at(-1)}`;
 
 /**
- * Built only from facts shown below it: the INR risk factors costing the most draft points, and the
- * NOVA group. Says nothing is "high": the 2022 draft defines no such limits.
+ * Built only from facts shown below it: the INR risk factors costing the most draft points. Says
+ * nothing is "high": the 2022 draft defines no such limits.
  */
-export function verdict(input: ScoringInput, novaResult: ScoreResult): string | null {
-  const parts: string[] = [];
+export function verdict(input: ScoringInput): string | null {
   const top = biggestPointsAgainst(input);
-  if (top.length) parts.push(`Most points lost to ${joinAnd(top)}`);
-  if (novaResult.value === 4) {
-    parts.push(novaResult.source === 'off' ? 'Ultra-processed' : 'Likely ultra-processed');
-  }
-  return parts.length ? parts.join(' · ') : null;
+  return top.length ? `Most points lost to ${joinAnd(top)}` : null;
+}
+
+export function processing(novaResult: ScoreResult): string | null {
+  if (novaResult.value !== 4) return null;
+  return novaResult.source === 'off' ? 'Ultra-processed' : 'Likely ultra-processed';
+}
+
+/** Short NOVA group names (Monteiro et al.), short enough for one line in a rating tile. */
+export const NOVA_GROUP: Record<number, string> = {
+  1: 'Unprocessed',
+  2: 'Culinary ingredient',
+  3: 'Processed',
+  4: 'Ultra-processed',
+};
+
+/** Labelwise's own wording per overall band (docs/sources/README.md); follows the band, nothing more. */
+export const BAND_NOTE: Record<OverallBand, string> = {
+  excellent: 'A good choice for regular consumption.',
+  good: 'A reasonable choice for regular consumption.',
+  poor: 'Best kept for occasional consumption.',
+  bad: 'Not a healthy choice for regular consumption.',
+};
+
+/** The card under the hero: what cost the most points, then what the band means for regular use. */
+export function summaryFor(
+  verdict: string | null,
+  overall: Overall | null,
+): { title: string; note?: string } | null {
+  const note = overall ? BAND_NOTE[overall.band] : undefined;
+  if (verdict) return { title: verdict, note };
+  return note ? { title: note } : null;
 }
 
 /** One-sentence explanations shown when a score is tapped. */

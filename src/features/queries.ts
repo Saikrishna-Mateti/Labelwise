@@ -12,8 +12,9 @@ export function useProduct(barcode: string) {
     queryKey: ['product', barcode],
     queryFn: async () => {
       const result = await resolveProduct(barcode, { store: await getStore(), fetchProduct });
-      // The scan was recorded before the product was cached; refresh history so it shows the product.
+      // The scan was recorded before the product was cached; refresh lists so they show the product.
       qc.invalidateQueries({ queryKey: ['scans'] });
+      qc.invalidateQueries({ queryKey: ['saved'] });
       return result;
     },
   });
@@ -61,6 +62,51 @@ export function useDeleteScan() {
     mutationFn: async (id: number) => (await getStore()).deleteScan(id),
     onSettled: () => qc.invalidateQueries({ queryKey: ['scans'] }),
   });
+}
+
+export function useClearScans() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => (await getStore()).clearScans(),
+    onSettled: () => qc.invalidateQueries({ queryKey: ['scans'] }),
+  });
+}
+
+export function useClearSaved() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => (await getStore()).clearSaved(),
+    // Also refreshes each product's bookmark button.
+    onSettled: () => qc.invalidateQueries({ queryKey: ['saved'] }),
+  });
+}
+
+export function useRemoveSaved() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (barcode: string) => (await getStore()).setSaved(barcode, false, Date.now()),
+    onSettled: () => qc.invalidateQueries({ queryKey: ['saved'] }),
+  });
+}
+
+export function useSavedList() {
+  return useQuery({ queryKey: ['saved'], queryFn: async () => (await getStore()).listSaved() });
+}
+
+/** Whether a product is saved, and a toggle that updates the button at once. */
+export function useSaved(barcode: string) {
+  const qc = useQueryClient();
+  const key = ['saved', barcode];
+  const query = useQuery({
+    queryKey: key,
+    queryFn: async () => (await getStore()).isSaved(barcode),
+  });
+  const mutation = useMutation({
+    mutationFn: async (saved: boolean) => (await getStore()).setSaved(barcode, saved, Date.now()),
+    onMutate: (saved) => qc.setQueryData(key, saved),
+    onSettled: () => qc.invalidateQueries({ queryKey: ['saved'] }),
+  });
+  return [query.data ?? false, mutation.mutate] as const;
 }
 
 export type PrimaryMethod = 'inr' | 'nutriscore';

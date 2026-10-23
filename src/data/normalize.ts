@@ -93,6 +93,8 @@ export function nutritionFromOff(nutriments: OffProduct['nutriments'] = {}): Nut
     sodiumMg: sodiumG !== undefined ? sodiumG * 1000 : undefined,
     fibreG: num(nutriments['fiber_100g']),
     proteinG: num(nutriments['proteins_100g']),
+    // Declared on Indian labels; used only by the ICMR-NIN limits. OFF has no added-fat field.
+    addedSugarsG: num(nutriments['added-sugars_100g']),
   };
 }
 
