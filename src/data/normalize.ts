@@ -24,6 +24,8 @@ export const OFF_FIELDS = [
   'labels_tags',
   'image_front_small_url',
   'nutriscore_data',
+  'serving_quantity',
+  'serving_quantity_unit',
 ] as const;
 
 export interface OffProduct {
@@ -44,6 +46,9 @@ export interface OffProduct {
   product_type?: string;
   labels_tags?: string[];
   image_front_small_url?: string;
+  /** Printed serving size as OFF stores it: a number plus "g" or "ml". */
+  serving_quantity?: number | string;
+  serving_quantity_unit?: string;
   nutriscore_data?: {
     components?: Partial<
       Record<
@@ -181,4 +186,16 @@ export function notFoodKind(p: OffProduct): NotFoodKind | null {
   if (c.includes('en:alcoholic-beverages')) return 'alcohol';
   if (c.includes('en:dietary-supplements')) return 'supplement';
   return null;
+}
+
+export interface Serving {
+  amount: number;
+  unit: 'g' | 'ml';
+}
+
+/** The serving size on OFF, if it has a usable one. */
+export function servingFromOff(off?: OffProduct): Serving | undefined {
+  const amount = Number(off?.serving_quantity);
+  const unit = off?.serving_quantity_unit;
+  return amount > 0 && (unit === 'g' || unit === 'ml') ? { amount, unit } : undefined;
 }

@@ -9,7 +9,7 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.labelwise.app"
+      "bundleIdentifier": "com.saikrishna.labelwise"
     },
     "android": {
       "package": "com.labelwise.app",
@@ -31,9 +31,16 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Labelwise uses the camera only to read product barcodes.",
+          "cameraPermission": "Labelwise uses the camera to read product barcodes and nutrition labels. Photos are read on your phone and never uploaded.",
           "microphonePermission": false,
           "recordAudioAndroid": false
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Labelwise uses the camera to read product barcodes and nutrition labels. Photos are read on your phone and never uploaded.",
+          "photosPermission": "Labelwise reads a photo of a nutrition label that you choose. It is read on your phone and never uploaded."
         }
       ]
     ],

@@ -41,9 +41,13 @@ export interface Draft {
   sodiumUnit: SodiumUnit;
   productType: ProductType;
   ingredientsText: string;
+  /** Serving size in g (food) or ml (drink), as typed. Optional. */
+  serving: string;
 }
 
-export type Errors = Partial<Record<NutrientKey, string>>;
+export type Errors = Partial<Record<NutrientKey | 'serving', string>>;
+
+export const SERVING_MAX = 1000;
 
 const NUMBER = /^(\d+\.?\d*|\.\d+)$/;
 const fmt = (n: number) => String(Number(n.toFixed(2)));
@@ -67,6 +71,7 @@ export function draftFrom(product?: ResolvedProduct): Draft {
     values,
     sodiumUnit: 'sodium_mg',
     productType: product?.productType.value ?? 'solid',
+    serving: product?.serving?.source === 'user' ? fmt(product.serving.value.amount) : '',
     ingredientsText:
       product?.ingredientsText?.source === 'user' ? product.ingredientsText.value : '',
   };
@@ -102,6 +107,12 @@ export function parseEntry(
     all[key] = n;
   }
 
+  const servingRaw = draft.serving.trim().replace(',', '.');
+  const serving = Number(servingRaw);
+  if (servingRaw && !(NUMBER.test(servingRaw) && serving >= 1 && serving <= SERVING_MAX)) {
+    errors.serving = `Enter the serving size from 1 to ${SERVING_MAX}, like 30`;
+  }
+
   const { addedSugarsG: added, sugarsG: total } = all;
   if (added !== undefined && total !== undefined && added > total) {
     errors.addedSugarsG = 'Added sugars can’t be more than total sugars';
@@ -118,6 +129,9 @@ export function parseEntry(
     entry: {
       nutrition,
       productType: draft.productType,
+      ...(servingRaw && {
+        serving: { amount: serving, unit: draft.productType === 'liquid' ? 'ml' : 'g' },
+      }),
       ...(ingredientsText ? { ingredientsText } : {}),
     },
   };

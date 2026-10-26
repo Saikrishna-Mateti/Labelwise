@@ -90,7 +90,8 @@ export function AboutScreen() {
       <Section title="Privacy">
         <Body>
           No account, no tracking and no ads. Your scan history and anything you enter stay on this
-          device. Labelwise only sends the barcode to Open Food Facts to look the product up.
+          device. Labelwise only sends the barcode to Open Food Facts to look the product up. A
+          photo of a nutrition label is read on your phone and is never uploaded.
         </Body>
       </Section>
 

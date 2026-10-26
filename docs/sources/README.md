@@ -40,3 +40,7 @@ The form takes sodium (mg) or salt (g) and stores sodium. Salt = sodium × 2.5, 
 ## Overall band (Labelwise's own, 2026-10-23)
 
 The product sheet's headline Excellent / Good / Poor / Bad band is a Labelwise mapping of OFF's Nutri-Score grade: A → Excellent, B → Good, C and D → Poor, E → Bad. Colours dark green, light green, orange, red. Not a published method. No score out of 100: a straight-line rescale of Nutri-Score points (range about −17 to 55) put grade E products at 52–58/100 ("Good"), so it was rejected. Additives and organic status are not part of it (no sourced additive risk data; Phase 2).
+
+## Label photo reading (Milestone 5, 2026-10-26)
+
+Photo of the nutrition table → on-device text recognition (Apple Vision on iOS, through `expo-text-extractor`) → `src/features/entry/parseLabel.ts` → pre-fills the manual-entry form. No source data or thresholds are involved; it only copies numbers printed on the pack. Rules: take the "per 100 g" column only (needs both a per 100 g and a per serve heading to order two columns); energy in kcal only, kJ is never converted; "<0.5" and impossible values are left empty and named to the user; salt goes through the form's existing salt switch; values from OFF stay locked; nothing is saved until the user taps Save. Photos are never uploaded. Parser tests use synthetic OCR text; tune against real Indian packs.

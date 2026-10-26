@@ -1,8 +1,9 @@
 // The four nutrients people look for first, each with the ICMR-NIN 2024 limit where one exists.
 
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Icon, Small } from '../../components/ui';
+import type { Serving } from '../../data/normalize';
 import type { ResolvedProduct, Sourced } from '../../data/resolver';
 import type { LimitCheck, LimitKey } from '../../scoring/warnings';
 import { ACCENT, tint, useTheme } from '../../theme';
@@ -34,12 +35,29 @@ const LIMIT_NAME: Record<LimitKey, string> = {
 export function NutritionCards({
   product,
   limits,
+  perServing = false,
+  onPerServing,
 }: {
   product: ResolvedProduct;
   limits: LimitCheck[];
+  /** Show amounts per printed serving instead of per 100 g. Needs product.serving. */
+  perServing?: boolean;
+  onPerServing?: (perServing: boolean) => void;
 }) {
   const t = useTheme();
-  const n = product.nutrition;
+  const serving = product.serving?.value;
+  const showServing = perServing && !!serving;
+  // Same numbers, scaled to one serving. The limits and chips only mean something per 100 g.
+  const k = showServing ? serving.amount / 100 : 1;
+  const scale = (v?: Sourced<number>) => (v ? { ...v, value: v.value * k } : v);
+  const n = {
+    ...product.nutrition,
+    saturatedFatG: scale(product.nutrition.saturatedFatG),
+    energyKcal: scale(product.nutrition.energyKcal),
+    sugarsG: scale(product.nutrition.sugarsG),
+    addedSugarsG: scale(product.nutrition.addedSugarsG),
+    proteinG: scale(product.nutrition.proteinG),
+  };
   const liquid = product.productType.value === 'liquid';
   const per = liquid ? '100 ml' : '100 g';
   // The check for a limit, including "unknown" when the value it needs is missing.
@@ -53,6 +71,7 @@ export function NutritionCards({
       accent: ACCENT.saturatedFat,
       value: n.saturatedFatG,
       unit: 'g',
+      noChip: showServing,
     },
     {
       label: 'Energy',
@@ -62,7 +81,8 @@ export function NutritionCards({
       value: n.energyKcal,
       unit: 'kcal',
       digits: 0,
-      limit: limit('energy'),
+      limit: showServing ? undefined : limit('energy'),
+      noChip: showServing,
     },
     {
       label: 'Sugars',
@@ -79,6 +99,7 @@ export function NutritionCards({
           ? 'All added'
           : `Added ${fmt(n.addedSugarsG.value)}\u00a0g`,
       limit: limit('addedSugars'),
+      noChip: showServing,
     },
     {
       label: 'Protein',
@@ -101,22 +122,78 @@ export function NutritionCards({
 
   return (
     <View style={{ gap: 10 }}>
+      {serving && onPerServing && (
+        <PerToggle serving={serving} per={per} perServing={showServing} onChange={onPerServing} />
+      )}
       <View style={styles.grid}>
         {cards.map((c) => (
           <NutrientCard key={c.label} card={c} />
         ))}
       </View>
-      {addedFat && (
+      {showServing && (
+        <Small>
+          Amounts for one serving of {serving.amount} {serving.unit}. Ratings and High / OK checks
+          always use per {per}.
+        </Small>
+      )}
+      {!showServing && addedFat && (
         <Text style={{ color: addedFat.status === 'high' ? t.con : t.text }}>
           Added fat {fmt(addedFat.value)} g (yours): {addedFat.status === 'high' ? 'High' : 'OK'}
         </Text>
       )}
-      <Small>
-        High means more than the ICMR-NIN 2024 limit per {per}, OK means at or under it:{' '}
-        {listed.map((l) => `${fmt(l.limit, 3)}\u00a0${LIMIT_NAME[l.key]}`).join(', ')}. There is no
-        limit for saturated fat or total sugars.
-        {hasUnknown && ' Not known means the value needed for the check is missing.'}
-      </Small>
+      {!showServing && (
+        <Small>
+          High means more than the ICMR-NIN 2024 limit per {per}, OK means at or under it:{' '}
+          {listed.map((l) => `${fmt(l.limit, 3)}\u00a0${LIMIT_NAME[l.key]}`).join(', ')}. There is
+          no limit for saturated fat or total sugars.
+          {hasUnknown && ' Not known means the value needed for the check is missing.'}
+        </Small>
+      )}
+    </View>
+  );
+}
+
+function PerToggle({
+  serving,
+  per,
+  perServing,
+  onChange,
+}: {
+  serving: Serving;
+  per: string;
+  perServing: boolean;
+  onChange: (perServing: boolean) => void;
+}) {
+  const t = useTheme();
+  const options: [boolean, string][] = [
+    [false, `Per ${per}`],
+    [true, `Per serving (${serving.amount} ${serving.unit})`],
+  ];
+  return (
+    <View accessibilityRole="radiogroup" style={styles.toggle}>
+      {options.map(([value, label]) => {
+        const selected = value === perServing;
+        return (
+          <Pressable
+            key={label}
+            accessibilityRole="radio"
+            accessibilityState={{ selected }}
+            onPress={() => onChange(value)}
+            style={[
+              styles.toggleOption,
+              { backgroundColor: selected ? t.primary : 'transparent', borderColor: t.primary },
+            ]}
+          >
+            <Text
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              style={{ color: selected ? t.onPrimary : t.primary, fontWeight: '600', fontSize: 14 }}
+            >
+              {label}
+            </Text>
+          </Pressable>
+        );
+      })}
     </View>
   );
 }
@@ -183,6 +260,15 @@ function NutrientCard({ card: c }: { card: Card }) {
 }
 
 const styles = StyleSheet.create({
+  toggle: { flexDirection: 'row', gap: 8 },
+  toggleOption: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+  },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   card: {
     flexGrow: 1,

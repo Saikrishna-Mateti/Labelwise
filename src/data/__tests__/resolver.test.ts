@@ -177,3 +177,30 @@ test('clearing history leaves saved products, cached products and the user’s o
   await store.clearSaved();
   expect(await store.listSaved()).toEqual([]);
 });
+
+test('scanning a product again keeps one history row, moved to the top', async () => {
+  const store = createStore(memoryDb());
+  await store.init();
+  await store.addScan(PARLE_G, 1);
+  await store.addScan('8900000000001', 2);
+  await store.addScan(PARLE_G, 3);
+  const scans = await store.listScans();
+  expect(scans.map((s) => [s.barcode, s.scannedAt])).toEqual([
+    [PARLE_G, 3],
+    ['8900000000001', 2],
+  ]);
+});
+
+test('opening the store removes repeats saved by older versions', async () => {
+  const db = memoryDb();
+  const store = createStore(db);
+  await store.init();
+  await db.runAsync('INSERT INTO scans (barcode, scanned_at) VALUES (?, ?)', PARLE_G, 1);
+  await db.runAsync('INSERT INTO scans (barcode, scanned_at) VALUES (?, ?)', PARLE_G, 5);
+  await db.runAsync('INSERT INTO scans (barcode, scanned_at) VALUES (?, ?)', '8900000000001', 3);
+  await createStore(db).init();
+  expect((await store.listScans()).map((s) => [s.barcode, s.scannedAt])).toEqual([
+    [PARLE_G, 5],
+    ['8900000000001', 3],
+  ]);
+});
