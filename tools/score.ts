@@ -2,7 +2,8 @@
 // Fetches one product from Open Food Facts (read-only) and prints every score with its reasons.
 
 import { normalizeBarcode } from '../src/data/barcode';
-import { additivesFromOff, scoringInputFromOff } from '../src/data/normalize';
+import { scoringInputFromOff } from '../src/data/normalize';
+import { lookupAdditives } from '../src/scoring/additives';
 import { fetchProduct } from '../src/data/offClient';
 import { inr, LABEL_FOR } from '../src/scoring/inr';
 import { nova } from '../src/scoring/nova';
@@ -54,9 +55,14 @@ async function main() {
     for (const reason of r.reasons) console.log(`  [${reason.kind}] ${reason.text}`);
   }
 
-  const additives = additivesFromOff(p.additives_tags);
+  const additives = lookupAdditives(p.additives_tags);
   console.log(`\nAdditives (${additives.length}):`);
-  for (const a of additives) console.log(`  ${a}`);
+  for (const a of additives) {
+    const risk = a.efsa ? `EFSA overexposure risk: ${a.efsa.risk}` : 'no EFSA risk data';
+    console.log(
+      `  INS ${a.ins ?? '?'} ${a.name} (${a.classes.join(', ') || 'no class'}) - ${risk}`,
+    );
+  }
   console.log('\nData © Open Food Facts contributors (ODbL)');
 }
 

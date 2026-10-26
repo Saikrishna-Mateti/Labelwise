@@ -214,7 +214,7 @@ function Row({
             </Text>
           )}
           {view?.kind === 'scored' ? (
-            <ScoreBadge scores={view.scores} />
+            <ScoreBadge scores={view.scores} overall={view.overall} />
           ) : (
             status && <Badge label={status} color={t.text} background={t.skeleton} />
           )}

@@ -47,7 +47,9 @@ Route types come from `.expo/types`, which Expo generates when the dev server st
 npm run score -- 8901719101038
 ```
 
-Fetches the product from Open Food Facts and prints the Indian Nutrition Rating (based on the FSSAI **draft** proposal), Nutri-Score and NOVA with reasons. Sources and interpretation decisions: `docs/sources/README.md`.
+Fetches the product from Open Food Facts and prints the Indian Nutrition Rating (based on the FSSAI **draft** proposal), Nutri-Score and NOVA with reasons, and each additive with its EFSA finding.
+
+`npm run additives` rebuilds `src/scoring/data/off-additives.json` from the Open Food Facts additives taxonomies. Sources and interpretation decisions: `docs/sources/README.md`.
 
 ## Bundle identifier
 
@@ -83,4 +85,4 @@ Product lookups are read-only `GET` requests to the Open Food Facts API v2, sent
 
 Product data comes from [Open Food Facts](https://world.openfoodfacts.org) and is available under the [Open Database License (ODbL)](https://opendatacommons.org/licenses/odbl/1-0/). Labelwise is not affiliated with or endorsed by Open Food Facts or FSSAI.
 
-App code is MIT licensed (see `LICENSE`). OFF data and files derived from it remain under ODbL: test fixtures in `src/scoring/__tests__/fixtures/` and the additive names in `src/data/off-additives.json` (from the OFF additives taxonomy).
+App code is MIT licensed (see `LICENSE`). OFF data and files derived from it remain under ODbL: test fixtures in `src/scoring/__tests__/fixtures/` and the additive names in `src/scoring/data/off-additives.json` (from the OFF additives taxonomy).

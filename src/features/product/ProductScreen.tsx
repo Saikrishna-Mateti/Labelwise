@@ -20,6 +20,7 @@ import { useTheme } from '../../theme';
 import { ocrSupported } from '../entry/recognise';
 import { usePrimaryMethod, useProduct, type PrimaryMethod } from '../queries';
 import { joinAnd, productView, summaryFor, type ProductScores } from './productView';
+import { Additives } from './Additives';
 import { Hero, SummaryCard } from './Hero';
 import { NutritionCards } from './NutritionCards';
 import { METHOD_ORDER, ScoreTiles } from './ScoreTiles';
@@ -145,6 +146,14 @@ export function ProductScreen({ barcode }: { barcode: string }) {
               perServing={perServing}
               onPerServing={setPerServing}
             />
+          </Collapsible>
+          <Collapsible
+            title="Additives"
+            suffix={view.additives.length ? `(${view.additives.length})` : undefined}
+            plain
+            initiallyOpen={view.additives.some((a) => a.efsa?.risk === 'high')}
+          >
+            <Additives additives={view.additives} />
           </Collapsible>
           <SectionTitle>All ratings</SectionTitle>
           <ScoreTiles scores={view.scores} primary={primary} />

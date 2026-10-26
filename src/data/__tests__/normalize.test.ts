@@ -2,7 +2,6 @@ import fixtures from '../../scoring/__tests__/fixtures/off-products.json';
 import { nova } from '../../scoring/nova';
 import {
   additiveName,
-  additivesFromOff,
   notFoodKind,
   novaMarkersFromOff,
   nutriscoreComponentsFromOff,
@@ -55,19 +54,6 @@ test.each([
 });
 
 describe('additives and NOVA markers', () => {
-  test('Pepsi additives get names from the OFF taxonomy', () => {
-    expect(additivesFromOff(off['8902080104581'].additives_tags)).toEqual([
-      'E150d - Sulphite ammonia caramel',
-      'E338 - Phosphoric acid',
-      'E436 - Polyoxyethylene sorbitan tristearate',
-    ]);
-  });
-
-  test('parent codes are dropped when a more specific code is present', () => {
-    const names = additivesFromOff(['en:e500', 'en:e500ii']);
-    expect(names).toEqual(['E500ii - Sodium hydrogen carbonate']);
-  });
-
   test('unknown additive falls back to its code', () => {
     expect(additiveName('en:e9999x')).toBe('E9999X');
   });

@@ -39,8 +39,18 @@ The form takes sodium (mg) or salt (g) and stores sodium. Salt = sodium × 2.5, 
 
 ## Overall band (Labelwise's own, 2026-10-23)
 
-The product sheet's headline Excellent / Good / Poor / Bad band is a Labelwise mapping of OFF's Nutri-Score grade: A → Excellent, B → Good, C and D → Poor, E → Bad. Colours dark green, light green, orange, red. Not a published method. No score out of 100: a straight-line rescale of Nutri-Score points (range about −17 to 55) put grade E products at 52–58/100 ("Good"), so it was rejected. Additives and organic status are not part of it (no sourced additive risk data; Phase 2).
+The product sheet's headline Excellent / Good / Poor / Bad band is a Labelwise mapping of OFF's Nutri-Score grade: A → Excellent, B → Good, C and D → Poor, E → Bad. Colours dark green, light green, orange, red. Not a published method. No score out of 100: a straight-line rescale of Nutri-Score points (range about −17 to 55) put grade E products at 52–58/100 ("Good"), so it was rejected. Organic status is not part of it. Additives lower it one step (2026-10-26, below).
 
 ## Label photo reading (Milestone 5, 2026-10-26)
 
 Photo of the nutrition table → on-device text recognition (Apple Vision on iOS, through `expo-text-extractor`) → `src/features/entry/parseLabel.ts` → pre-fills the manual-entry form. No source data or thresholds are involved; it only copies numbers printed on the pack. Rules: take the "per 100 g" column only (needs both a per 100 g and a per serve heading to order two columns); energy in kcal only, kJ is never converted; "<0.5" and impossible values are left empty and named to the user; salt goes through the form's existing salt switch; values from OFF stay locked; nothing is saved until the user taps Save. Photos are never uploaded. Parser tests use synthetic OCR text; tune against real Indian packs.
+
+## Additives (Phase 2, 2026-10-26)
+
+Source: Open Food Facts additives and additives_classes taxonomies (`https://static.openfoodfacts.org/data/taxonomies/`), ODbL, rebuilt into `src/scoring/data/off-additives.json` by `npm run additives` (retrieved 2026-10-26). Used fields: name, INS/E number (same numbering), function classes, vegetarian (yes / no / maybe), and `efsa_evaluation_overexposure_risk` (high / moderate / no) with the EFSA opinion's date and link. Sub-codes inherit from their parent (E450i takes E450's finding).
+
+What the EFSA finding means: whether estimated usual intake in some population groups exceeds the acceptable daily intake. It is not a measure of harm at the amount in one product. In the 2026-10-26 file: 38 high, 14 moderate, 13 no, 700 not assessed. Gaps: e.g. E171 titanium dioxide and E319 TBHQ have no finding. Not assessed is shown as "No data", never as safe.
+
+Overall band rule (Labelwise's own, chosen by the project owner): any additive with an EFSA "high" finding lowers the band one step (Excellent → Good → Poor → Bad; Bad stays Bad). Several high-risk additives still mean one step. Moderate is shown but does not change the band. The Nutri-Score grade itself is shown unchanged.
+
+Considered and not used: a Zabel (zabel.app/ins) page listing 65 INS codes with its own "points out of 20" penalties. It is a competitor's own method with no citations in the copy supplied, and its licence is unknown.
