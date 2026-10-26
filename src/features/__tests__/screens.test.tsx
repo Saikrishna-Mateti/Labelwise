@@ -147,6 +147,20 @@ describe('ProductScreen', () => {
     expect(screen.queryByText(/^Per serving/)).not.toBeOnTheScreen();
   });
 
+  test('additives section lists each additive with its EFSA finding', async () => {
+    jest.mocked(fetchProduct).mockResolvedValue({ status: 'found', product: off['8902080104581'] });
+    await renderWithQuery(<ProductScreen barcode="8902080104581" />);
+    // Opens on its own because Pepsi has a high-risk additive.
+    expect(
+      await screen.findByLabelText(
+        /^Phosphoric acid, INS 338, .*EFSA: high risk of eating too much/,
+      ),
+    ).toBeOnTheScreen();
+    expect(screen.getByText('Moderate risk')).toBeOnTheScreen();
+    expect(screen.getByText('No risk found')).toBeOnTheScreen();
+    expect(screen.getByText('(3)')).toBeOnTheScreen();
+  });
+
   test('not enough data names the missing nutrients', async () => {
     const { nutriscore_grade, nutriscore_score, ...maggi } = off['8901058000290'];
     jest.mocked(fetchProduct).mockResolvedValue({ status: 'found', product: maggi });

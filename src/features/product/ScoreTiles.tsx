@@ -8,7 +8,7 @@ import { Body } from '../../components/ui';
 import type { ScoreResult } from '../../scoring/types';
 import { ACCENT, NOVA_COLORS, NUTRISCORE_COLORS, tint, useBandShades, useTheme } from '../../theme';
 import type { PrimaryMethod } from '../queries';
-import { EXPLAIN, NOVA_GROUP, overallFor, type ProductScores } from './productView';
+import { EXPLAIN, NOVA_GROUP, type Overall, type ProductScores } from './productView';
 
 type Method = keyof ProductScores;
 
@@ -164,9 +164,14 @@ export function Badge({
 }
 
 /** The overall band as a small pill, else the India rating when there is no Nutri-Score. */
-export function ScoreBadge({ scores }: { scores: ProductScores }) {
+export function ScoreBadge({
+  scores,
+  overall,
+}: {
+  scores: ProductScores;
+  overall: Overall | null;
+}) {
   const t = useTheme();
-  const overall = overallFor(scores.nutriscore.band);
   const shades = useBandShades(overall?.band);
   if (overall && shades) {
     return (

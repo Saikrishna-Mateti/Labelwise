@@ -4,6 +4,7 @@ import { notFoodKind, type NotFoodKind } from '../../data/normalize';
 import type { Resolution, ResolvedProduct } from '../../data/resolver';
 import { toScoringInput } from '../../data/resolver';
 import type { OffError } from '../../data/offClient';
+import { lookupAdditives, type Additive } from '../../scoring/additives';
 import { biggestPointsAgainst, inr, LABEL_FOR, RISK } from '../../scoring/inr';
 import { nova } from '../../scoring/nova';
 import { nutriscore } from '../../scoring/nutriscore';
@@ -33,8 +34,10 @@ export type ProductView =
       processing: string | null;
       /** ICMR-NIN 2024 limits: energy, salt, added sugar, added fat (salt is checked but not shown yet). */
       limits: LimitCheck[];
-      /** Labelwise's overall band, from the Nutri-Score grade. Null without a grade. */
+      /** Labelwise's overall band, from the Nutri-Score grade and additives. Null without a grade. */
       overall: Overall | null;
+      /** From Open Food Facts; most concerning first. */
+      additives: Additive[];
       offError?: OffError;
     };
 
@@ -60,7 +63,8 @@ export function productView(r: Resolution): ProductView {
       .map((k) => LABEL_FOR[k]);
     return { kind: 'not_enough_data', product, missing, offError };
   }
-  const overall = overallFor(scores.nutriscore.band);
+  const additives = lookupAdditives(input.off?.additives);
+  const overall = overallFor(scores.nutriscore.band, additives);
   return {
     kind: 'scored',
     product,
@@ -69,6 +73,7 @@ export function productView(r: Resolution): ProductView {
     processing: processing(scores.nova),
     limits: checkLimits(input),
     overall,
+    additives,
     offError,
   };
 }
@@ -79,6 +84,8 @@ export interface Overall {
   band: OverallBand;
   label: string;
   grade: string;
+  /** Additives with a high EFSA intake risk that moved the band down one step; empty if none did. */
+  loweredBy: Additive[];
 }
 
 /** Labelwise's own mapping (docs/sources/README.md): a grade E product can never look good. */
@@ -97,9 +104,18 @@ const BAND_LABEL: Record<OverallBand, string> = {
   bad: 'Bad',
 };
 
-export function overallFor(grade: string | null): Overall | null {
-  const band = grade ? BAND_FOR_GRADE[grade] : undefined;
-  return band && grade ? { band, label: BAND_LABEL[band], grade } : null;
+const ORDER: OverallBand[] = ['excellent', 'good', 'poor', 'bad'];
+
+/**
+ * Labelwise's own rule (docs/sources/README.md): the Nutri-Score band, one step lower when the
+ * product has any additive EFSA found a high overexposure risk for. Bad stays Bad.
+ */
+export function overallFor(grade: string | null, additives: Additive[] = []): Overall | null {
+  const base = grade ? BAND_FOR_GRADE[grade] : undefined;
+  if (!base || !grade) return null;
+  const high = additives.filter((a) => a.efsa?.risk === 'high');
+  const band = high.length ? ORDER[Math.min(ORDER.indexOf(base) + 1, ORDER.length - 1)] : base;
+  return { band, label: BAND_LABEL[band], grade, loweredBy: band === base ? [] : high };
 }
 
 export const joinAnd = (items: string[]) =>
@@ -140,7 +156,10 @@ export function summaryFor(
   verdict: string | null,
   overall: Overall | null,
 ): { title: string; note?: string } | null {
-  const note = overall ? BAND_NOTE[overall.band] : undefined;
+  const lowered = overall?.loweredBy.length
+    ? ` Rated one step lower for ${joinAnd(overall.loweredBy.map((a) => a.name.toLowerCase()))}: ${overall.loweredBy.length > 1 ? 'additives' : 'an additive'} EFSA found people may eat too much of.`
+    : '';
+  const note = overall ? BAND_NOTE[overall.band] + lowered : undefined;
   if (verdict) return { title: verdict, note };
   return note ? { title: note } : null;
 }

@@ -34,6 +34,8 @@ export interface ScoringInput {
     nutriscoreScore?: number;
     /** OFF's Nutri-Score breakdown: points each component adds (negative) or removes (positive). */
     nutriscoreComponents?: NutriscoreComponent[];
+    /** OFF additive tags, e.g. "en:e621". */
+    additives?: string[];
   };
 }
 

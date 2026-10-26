@@ -4,7 +4,7 @@ import type {
   ProductType,
   ScoringInput,
 } from '../scoring/types';
-import offAdditives from './off-additives.json';
+import offAdditives from '../scoring/data/off-additives.json';
 
 /** Fields requested from the OFF API v2. */
 export const OFF_FIELDS = [
@@ -110,12 +110,6 @@ export function additiveName(tag: string): string {
   return ADDITIVES[tag]?.name ?? tag.replace(/^\w+:/, '').toUpperCase();
 }
 
-/** Additive names, without parents that OFF adds next to a more specific code (e500 beside e500ii). */
-export function additivesFromOff(tags: string[] = []): string[] {
-  const parents = new Set(tags.flatMap((t) => ADDITIVES[t]?.parents ?? []));
-  return tags.filter((t) => !parents.has(t)).map(additiveName);
-}
-
 /** OFF's reasons for the NOVA group it assigned, as readable text. */
 export function novaMarkersFromOff(p: OffProduct): string[] {
   const markers = p.nova_group ? (p.nova_groups_markers?.[String(p.nova_group)] ?? []) : [];
@@ -159,6 +153,7 @@ export function scoringInputFromOff(p: OffProduct): ScoringInput {
       nutriscoreGrade: p.nutriscore_grade,
       nutriscoreScore: p.nutriscore_score,
       nutriscoreComponents: nutriscoreComponentsFromOff(p),
+      additives: p.additives_tags,
     },
   };
 }

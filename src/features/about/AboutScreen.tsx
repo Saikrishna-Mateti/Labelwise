@@ -52,8 +52,13 @@ export function AboutScreen() {
       <Section title="About the scores">
         <Body>
           Overall (Excellent, Good, Poor, Bad): Labelwise’s plain-language reading of the
-          Nutri-Score grade. A is Excellent, B is Good, C and D are Poor, E is Bad. It doesn’t yet
-          include additives.
+          Nutri-Score grade. A is Excellent, B is Good, C and D are Poor, E is Bad. It drops one
+          step if the product has an additive that the European Food Safety Authority (EFSA) found
+          people may eat more of than the safe daily amount. Bad stays Bad.
+        </Body>
+        <Body>
+          Additives: names, INS numbers and EFSA findings come from Open Food Facts. “No data” means
+          EFSA has no such finding on record, not that the additive is safe.
         </Body>
         <Body>
           High / OK: compared with the ICMR-NIN Dietary Guidelines for Indians 2024 limits for
