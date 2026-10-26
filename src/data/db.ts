@@ -4,7 +4,7 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
 import type { NutritionPer100, ProductType } from '../scoring/types';
-import type { OffProduct } from './normalize';
+import type { OffProduct, Serving } from './normalize';
 
 /** The parts of expo-sqlite's database used here, so tests can pass another SQLite. */
 export type Db = Pick<SQLiteDatabase, 'execAsync' | 'runAsync' | 'getFirstAsync' | 'getAllAsync'>;
@@ -19,6 +19,8 @@ export interface UserEntry {
   nutrition: NutritionPer100;
   productType: ProductType;
   ingredientsText?: string;
+  /** Printed serving size, for the per-serving view. Ratings never use it. */
+  serving?: Serving;
   updatedAt: number;
 }
 
@@ -84,7 +86,13 @@ export function createStore(db: Db) {
   }
 
   return {
-    init: () => db.execAsync(SCHEMA),
+    init: async () => {
+      await db.execAsync(SCHEMA);
+      // History keeps one row per product; this clears repeats saved by older versions.
+      await db.execAsync(
+        'DELETE FROM scans WHERE id NOT IN (SELECT MAX(id) FROM scans GROUP BY barcode)',
+      );
+    },
 
     async getCached(barcode: string): Promise<CachedProduct | null> {
       const row = await db.getFirstAsync<{ json: string; fetched_at: number }>(
@@ -122,7 +130,9 @@ export function createStore(db: Db) {
       );
     },
 
+    /** One history row per product: scanning it again moves it to the top with the new time. */
     async addScan(barcode: string, scannedAt: number): Promise<void> {
+      await db.runAsync('DELETE FROM scans WHERE barcode = ?', barcode);
       await db.runAsync(
         'INSERT INTO scans (barcode, scanned_at) VALUES (?, ?)',
         barcode,

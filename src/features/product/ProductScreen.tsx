@@ -17,6 +17,7 @@ import type { ResolvedProduct } from '../../data/resolver';
 import { LABEL_FOR } from '../../scoring/inr';
 import type { NutrientKey, Reason } from '../../scoring/types';
 import { useTheme } from '../../theme';
+import { ocrSupported } from '../entry/recognise';
 import { usePrimaryMethod, useProduct, type PrimaryMethod } from '../queries';
 import { joinAnd, productView, summaryFor, type ProductScores } from './productView';
 import { Hero, SummaryCard } from './Hero';
@@ -33,6 +34,7 @@ const UNAVAILABLE: Record<OffError, string> = {
 export function ProductScreen({ barcode }: { barcode: string }) {
   const { data, isPending, isError, refetch, isRefetching } = useProduct(barcode);
   const [primary] = usePrimaryMethod();
+  const [perServing, setPerServing] = useState(false);
 
   if (isPending) return <Skeleton />;
   if (isError || !data) {
@@ -62,7 +64,7 @@ export function ProductScreen({ barcode }: { barcode: string }) {
         <Screen>
           <Message
             title="Product not found"
-            body={`Barcode ${view.barcode} isn’t on Open Food Facts yet. You can add its nutrition values from the pack yourself.`}
+            body={`Barcode ${view.barcode} isn’t on Open Food Facts yet. Scan the nutrition table on the pack, or type the values yourself. They stay on your phone.`}
           >
             <AddNutritionButton barcode={view.barcode} />
           </Message>
@@ -129,11 +131,20 @@ export function ProductScreen({ barcode }: { barcode: string }) {
           {summary && <SummaryCard {...summary} band={view.overall?.band} />}
           <Collapsible
             title="Nutrition"
-            suffix={`(per ${view.product.productType.value === 'liquid' ? '100 ml' : '100 g'})`}
+            suffix={
+              perServing && view.product.serving
+                ? `(per serving)`
+                : `(per ${view.product.productType.value === 'liquid' ? '100 ml' : '100 g'})`
+            }
             plain
             initiallyOpen
           >
-            <NutritionCards product={view.product} limits={view.limits} />
+            <NutritionCards
+              product={view.product}
+              limits={view.limits}
+              perServing={perServing}
+              onPerServing={setPerServing}
+            />
           </Collapsible>
           <SectionTitle>All ratings</SectionTitle>
           <ScoreTiles scores={view.scores} primary={primary} />
@@ -180,11 +191,21 @@ const hasUserValues = (p: ResolvedProduct) =>
 function AddNutritionButton({ barcode, edit }: { barcode: string; edit?: boolean }) {
   const router = useRouter();
   return (
-    <Button
-      title={edit ? 'Edit your values' : 'Add nutrition info'}
-      secondary={edit}
-      onPress={() => router.push({ pathname: '/entry/[barcode]', params: { barcode } })}
-    />
+    <View style={{ gap: 10 }}>
+      {!edit && ocrSupported && (
+        <Button
+          title="Scan nutrition label"
+          onPress={() =>
+            router.push({ pathname: '/entry/[barcode]', params: { barcode, scan: 'camera' } })
+          }
+        />
+      )}
+      <Button
+        title={edit ? 'Edit your values' : 'Type the values'}
+        secondary={edit || ocrSupported}
+        onPress={() => router.push({ pathname: '/entry/[barcode]', params: { barcode } })}
+      />
+    </View>
   );
 }
 

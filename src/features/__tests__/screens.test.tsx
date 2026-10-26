@@ -1,5 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen } from '@testing-library/react-native';
+import * as ImagePicker from 'expo-image-picker';
+import { extractTextFromImage } from 'expo-text-extractor';
 import { Alert, type AlertButton } from 'react-native';
 import type { ReactElement } from 'react';
 
@@ -32,6 +34,12 @@ jest.mock('expo-camera', () => ({
   CameraView: () => null,
   useCameraPermissions: () => [{ granted: false, canAskAgain: true }, jest.fn()],
 }));
+
+jest.mock('expo-image-picker', () => ({
+  launchCameraAsync: jest.fn(),
+  launchImageLibraryAsync: jest.fn(),
+}));
+jest.mock('expo-text-extractor', () => ({ isSupported: true, extractTextFromImage: jest.fn() }));
 
 const off = fixtures as Record<string, OffProduct>;
 let store: Store;
@@ -112,6 +120,33 @@ describe('ProductScreen', () => {
     expect(screen.getByText(/Not known means the value needed/)).toBeOnTheScreen();
   });
 
+  test('per serving view scales the amounts and keeps ratings per 100 g', async () => {
+    jest.mocked(fetchProduct).mockResolvedValue({
+      status: 'found',
+      product: { ...off['8901719101038'], serving_quantity: 56.4, serving_quantity_unit: 'g' },
+    });
+    await renderWithQuery(<ProductScreen barcode="8901719101038" />);
+
+    await fireEvent.press(await screen.findByText('Per serving (56.4 g)'));
+    // 24.8 g sugars per 100 g x 56.4 / 100 = 14 g; no High / OK chip in this view.
+    expect(await screen.findByLabelText('Sugars, 14 g, Added 14.1 g')).toBeOnTheScreen();
+    expect(
+      screen.getByText(/Ratings and High \/ OK checks always use per 100 g/),
+    ).toBeOnTheScreen();
+    expect(screen.getByText('(per serving)')).toBeOnTheScreen();
+    expect(screen.getByLabelText(/^Overall: Bad/)).toBeOnTheScreen();
+
+    await fireEvent.press(screen.getByText('Per 100 g'));
+    expect(screen.getByLabelText(/^Sugars, 24.8 g/)).toBeOnTheScreen();
+  });
+
+  test('no serving size on file means no toggle', async () => {
+    jest.mocked(fetchProduct).mockResolvedValue({ status: 'found', product: off['8901719101038'] });
+    await renderWithQuery(<ProductScreen barcode="8901719101038" />);
+    await screen.findByLabelText(/^Overall/);
+    expect(screen.queryByText(/^Per serving/)).not.toBeOnTheScreen();
+  });
+
   test('not enough data names the missing nutrients', async () => {
     const { nutriscore_grade, nutriscore_score, ...maggi } = off['8901058000290'];
     jest.mocked(fetchProduct).mockResolvedValue({ status: 'found', product: maggi });
@@ -127,6 +162,17 @@ describe('ProductScreen', () => {
     jest.mocked(fetchProduct).mockResolvedValue({ status: 'not_found' });
     await renderWithQuery(<ProductScreen barcode="8900000000001" />);
     expect(await screen.findByText('Product not found')).toBeOnTheScreen();
+
+    await fireEvent.press(screen.getByText('Scan nutrition label'));
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: '/entry/[barcode]',
+      params: { barcode: '8900000000001', scan: 'camera' },
+    });
+    await fireEvent.press(screen.getByText('Type the values'));
+    expect(mockPush).toHaveBeenLastCalledWith({
+      pathname: '/entry/[barcode]',
+      params: { barcode: '8900000000001' },
+    });
   });
 
   test('offline without a saved copy offers a retry', async () => {
@@ -138,6 +184,41 @@ describe('ProductScreen', () => {
 });
 
 describe('EntryScreen', () => {
+  test('scanning a label fills the form for checking and saves nothing yet', async () => {
+    jest.mocked(fetchProduct).mockResolvedValue({ status: 'not_found' });
+    jest.mocked(ImagePicker.launchCameraAsync).mockResolvedValue({
+      canceled: false,
+      assets: [{ uri: 'file:///label.jpg' }],
+    } as ImagePicker.ImagePickerResult);
+    jest
+      .mocked(extractTextFromImage)
+      .mockResolvedValue(['Per 100 g', 'Energy 450 kcal', 'Protein 7.1 g', 'Sodium 320 mg']);
+    await renderWithQuery(<EntryScreen barcode="8900000000001" />);
+
+    await fireEvent.press(await screen.findByText('Scan label'));
+
+    expect(await screen.findByText(/Filled 3 values from the photo/)).toBeOnTheScreen();
+    expect(screen.getByDisplayValue('450')).toBeOnTheScreen();
+    expect(screen.getByDisplayValue('7.1')).toBeOnTheScreen();
+    expect(screen.getByDisplayValue('320')).toBeOnTheScreen();
+    expect(await store.getUserEntry('8900000000001')).toBeNull();
+  });
+
+  test('a cancelled or unreadable photo leaves the form alone', async () => {
+    jest.mocked(fetchProduct).mockResolvedValue({ status: 'not_found' });
+    jest.mocked(ImagePicker.launchCameraAsync).mockResolvedValue({
+      canceled: true,
+      assets: null,
+    } as ImagePicker.ImagePickerResult);
+    await renderWithQuery(<EntryScreen barcode="8900000000001" />);
+    await fireEvent.press(await screen.findByText('Scan label'));
+    expect(screen.queryByText(/Filled/)).not.toBeOnTheScreen();
+
+    jest.mocked(ImagePicker.launchCameraAsync).mockRejectedValue(new Error('no camera'));
+    await fireEvent.press(screen.getByText('Scan label'));
+    expect(await screen.findByText(/Couldn’t read that photo/)).toBeOnTheScreen();
+  });
+
   test('entering values makes an unrated product scorable and marks them as yours', async () => {
     const { nutriscore_grade, nutriscore_score, ...maggi } = off['8901058000290'];
     jest.mocked(fetchProduct).mockResolvedValue({ status: 'found', product: maggi });
@@ -228,7 +309,7 @@ describe('HistoryScreen', () => {
     expect(
       await screen.findByText('Your scanned and checked products. They stay on this device.'),
     ).toBeOnTheScreen();
-    await fireEvent.press(screen.getByLabelText('Clear all history'));
+    await fireEvent.press(await screen.findByLabelText('Clear all history'));
     expect(alert.mock.calls[0][0]).toBe('Clear all history?');
     expect(await store.listScans()).toHaveLength(1); // nothing happens until confirmed
 
@@ -241,7 +322,7 @@ describe('HistoryScreen', () => {
     expect(
       await screen.findByText('Products you bookmarked. They stay on this device.'),
     ).toBeOnTheScreen();
-    await fireEvent.press(screen.getByLabelText('Remove all saved'));
+    await fireEvent.press(await screen.findByLabelText('Remove all saved'));
     confirm();
     expect(await screen.findByText('Nothing saved yet')).toBeOnTheScreen();
     alert.mockRestore();

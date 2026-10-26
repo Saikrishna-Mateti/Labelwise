@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { Body, Button, Screen, Skeleton, Small, Title } from '../../components/ui';
@@ -7,21 +7,69 @@ import type { ResolvedProduct } from '../../data/resolver';
 import { useTheme } from '../../theme';
 import { useProduct, useSaveEntry } from '../queries';
 import { draftFrom, FIELDS, offKeys, parseEntry, type Draft, type Errors } from './entryForm';
+import { applyReading, describeReading, parseLabel } from './parseLabel';
+import { ocrSupported, readLabelPhoto, type PhotoSource } from './recognise';
 
-export function EntryScreen({ barcode }: { barcode: string }) {
+export function EntryScreen({ barcode, scan }: { barcode: string; scan?: PhotoSource }) {
   const { data, isPending } = useProduct(barcode);
   if (isPending) return <Skeleton />;
-  return <EntryForm barcode={barcode} product={data?.status === 'ok' ? data.product : undefined} />;
+  return (
+    <EntryForm
+      barcode={barcode}
+      scan={scan}
+      product={data?.status === 'ok' ? data.product : undefined}
+    />
+  );
 }
 
-function EntryForm({ barcode, product }: { barcode: string; product?: ResolvedProduct }) {
+function EntryForm({
+  barcode,
+  product,
+  scan,
+}: {
+  barcode: string;
+  product?: ResolvedProduct;
+  scan?: PhotoSource;
+}) {
   const t = useTheme();
   const router = useRouter();
   const save = useSaveEntry(barcode);
   const locked = offKeys(product);
+  const servingKnown = product?.serving?.source === 'off';
   const [draft, setDraft] = useState<Draft>(() => draftFrom(product));
   const [errors, setErrors] = useState<Errors>({});
   const per = draft.productType === 'liquid' ? '100 ml' : '100 g';
+  const [reading, setReading] = useState<{ text: string; busy?: boolean; raw?: string[] } | null>(
+    null,
+  );
+
+  const scanLabel = async (source: PhotoSource) => {
+    setReading({ text: 'Reading the label…', busy: true });
+    try {
+      const lines = await readLabelPhoto(source);
+      if (!lines) return setReading(null);
+      const result = parseLabel(lines);
+      const { draft: next, applied } = applyReading(draft, result, locked, servingKnown);
+      setDraft(next);
+      setErrors({});
+      setReading({ text: describeReading(result, applied), raw: lines });
+    } catch {
+      setReading({ text: 'Couldn’t read that photo. Try again, or type the values.' });
+    }
+  };
+
+  // Arrived from "Scan nutrition label": open the camera once the screen has finished appearing.
+  const autoScan = useRef(scan);
+  useEffect(() => {
+    if (!autoScan.current) return;
+    const source = autoScan.current;
+    autoScan.current = undefined;
+    // Long enough for the modal's slide-in; iOS refuses a camera while another screen is presenting.
+    const timer = setTimeout(() => scanLabel(source), 600);
+    return () => clearTimeout(timer);
+    // Runs once on arrival; scanLabel reads the draft as it is then.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const onSave = () => {
     const result = parseEntry(draft, locked);
@@ -39,6 +87,35 @@ function EntryForm({ barcode, product }: { barcode: string; product?: ResolvedPr
         Copy the “per {per}” column from the pack, not per serving. Leave anything you can’t find
         empty. Your values stay on this device.
       </Body>
+
+      {ocrSupported && (
+        <Group label="Read it from the pack">
+          <View style={styles.choices}>
+            <View style={{ flex: 1 }}>
+              <Button title="Scan label" onPress={() => scanLabel('camera')} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Button title="Choose photo" secondary onPress={() => scanLabel('library')} />
+            </View>
+          </View>
+          {reading ? (
+            <Text accessibilityLiveRegion="polite" style={{ color: t.text }}>
+              {reading.text}
+            </Text>
+          ) : (
+            <Small>
+              Photograph the nutrition table. It is read on your phone, and you check the values
+              before saving.
+            </Small>
+          )}
+          {/* Development builds only: the raw OCR lines, for tuning the parser on real packs. */}
+          {__DEV__ && reading?.raw && (
+            <Text selectable style={{ color: t.muted, fontSize: 13 }}>
+              {`OCR (dev only):\n${reading.raw.join('\n')}`}
+            </Text>
+          )}
+        </Group>
+      )}
 
       <Group label="Product type">
         <Choice
@@ -96,6 +173,35 @@ function EntryForm({ barcode, product }: { barcode: string; product?: ResolvedPr
           </Group>
         );
       })}
+
+      {!servingKnown && (
+        <Group label={`Serving size (${draft.productType === 'liquid' ? 'ml' : 'g'})`} id="serving">
+          <TextInput
+            accessibilityLabelledBy="serving"
+            accessibilityHint={errors.serving}
+            value={draft.serving}
+            onChangeText={(serving) => setDraft({ ...draft, serving })}
+            keyboardType="decimal-pad"
+            placeholder="e.g. 30"
+            placeholderTextColor={t.muted}
+            style={[
+              styles.input,
+              {
+                color: t.text,
+                backgroundColor: t.card,
+                borderColor: errors.serving ? t.con : t.card,
+              },
+            ]}
+          />
+          {errors.serving ? (
+            <Text style={{ color: t.con }}>{errors.serving}</Text>
+          ) : (
+            <Small>
+              Optional. Lets the product page show amounts per serving. Ratings stay per {per}.
+            </Small>
+          )}
+        </Group>
+      )}
 
       <Group label="Ingredients (optional)" id="ingredients">
         {product?.ingredientsText?.source === 'off' ? (

@@ -4,7 +4,7 @@
 import type { NutrientKey, ProductType, ScoringInput } from '../scoring/types';
 import { normalizeBarcode } from './barcode';
 import type { Store, UserEntry } from './db';
-import { scoringInputFromOff, type OffProduct } from './normalize';
+import { scoringInputFromOff, servingFromOff, type OffProduct, type Serving } from './normalize';
 import type { FetchProduct, OffError } from './offClient';
 
 /** Cached OFF data younger than this is used without a network call. */
@@ -25,6 +25,8 @@ export interface ResolvedProduct {
   productType: Sourced<ProductType>;
   nutrition: Partial<Record<NutrientKey, Sourced<number>>>;
   ingredientsText?: Sourced<string>;
+  /** For showing amounts per serving; ratings are always per 100 g. */
+  serving?: Sourced<Serving>;
 }
 
 export type Resolution =
@@ -75,6 +77,7 @@ export async function resolveProduct(
 
 export function mergeProduct(barcode: string, off?: OffProduct, user?: UserEntry): ResolvedProduct {
   const fromOff = off ? scoringInputFromOff(off) : undefined;
+  const offServing = servingFromOff(off);
 
   const nutrition: ResolvedProduct['nutrition'] = {};
   const keys = new Set([
@@ -103,6 +106,11 @@ export function mergeProduct(barcode: string, off?: OffProduct, user?: UserEntry
       : { value: fromOff?.productType ?? 'solid', source: 'off' },
     nutrition,
     ingredientsText: ingredients,
+    serving: offServing
+      ? { value: offServing, source: 'off' }
+      : user?.serving
+        ? { value: user.serving, source: 'user' }
+        : undefined,
   };
 }
 

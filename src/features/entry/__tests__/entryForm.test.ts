@@ -6,6 +6,7 @@ const draft = (values: Draft['values'], extra: Partial<Draft> = {}): Draft => ({
   sodiumUnit: 'sodium_mg',
   productType: 'solid',
   ingredientsText: '',
+  serving: '',
   ...extra,
 });
 
@@ -59,5 +60,23 @@ describe('parseEntry', () => {
     expect(d.values.proteinG).toBe('9');
     const r = parseEntry({ ...d, values: { ...d.values, energyKcal: '400' } }, offKeys(product));
     expect(r.ok && r.entry.nutrition).toEqual({ energyKcal: 400 });
+  });
+});
+
+describe('serving size', () => {
+  it('is saved in g for food and ml for drinks', () => {
+    const food = parseEntry(draft({}, { serving: '34' }), new Set());
+    expect(food.ok && food.entry.serving).toEqual({ amount: 34, unit: 'g' });
+    const drink = parseEntry(draft({}, { serving: '250,5', productType: 'liquid' }), new Set());
+    expect(drink.ok && drink.entry.serving).toEqual({ amount: 250.5, unit: 'ml' });
+  });
+
+  it('is optional, and rejects nonsense', () => {
+    const none = parseEntry(draft({}), new Set());
+    expect(none.ok && 'serving' in none.entry).toBe(false);
+    for (const serving of ['0', '5000', 'abc']) {
+      const r = parseEntry(draft({}, { serving }), new Set());
+      expect(!r.ok && r.errors.serving).toBeTruthy();
+    }
   });
 });
