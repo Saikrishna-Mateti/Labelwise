@@ -5,11 +5,12 @@ import type { Resolution, ResolvedProduct } from '../../data/resolver';
 import { toScoringInput } from '../../data/resolver';
 import type { OffError } from '../../data/offClient';
 import { lookupAdditives, type Additive } from '../../scoring/additives';
-import { biggestPointsAgainst, inr, LABEL_FOR, RISK } from '../../scoring/inr';
+import { inr, LABEL_FOR, RISK } from '../../scoring/inr';
 import { nova } from '../../scoring/nova';
 import { nutriscore } from '../../scoring/nutriscore';
-import type { ScoreResult, ScoringInput } from '../../scoring/types';
-import { checkLimits, type LimitCheck } from '../../scoring/warnings';
+import type { ScoreResult } from '../../scoring/types';
+import { nutrientLevels, type LevelKey, type NutrientLevel } from '../../scoring/levels';
+import type { Tier } from '../../theme';
 
 export interface ProductScores {
   inr: ScoreResult;
@@ -28,16 +29,18 @@ export type ProductView =
       kind: 'scored';
       product: ResolvedProduct;
       scores: ProductScores;
-      /** One-line summary, e.g. "Most points lost to total sugars and energy". */
-      verdict: string | null;
-      /** "Ultra-processed" (NOVA 4 from OFF) or "Likely ultra-processed" (estimated); else null. */
-      processing: string | null;
-      /** ICMR-NIN 2024 limits: energy, salt, added sugar, added fat (salt is checked but not shown yet). */
-      limits: LimitCheck[];
       /** Labelwise's overall band, from the Nutri-Score grade and additives. Null without a grade. */
       overall: Overall | null;
       /** From Open Food Facts; most concerning first. */
       additives: Additive[];
+      /** Labelwise's 0-100 score (docs/sources/README.md); null without an overall band. */
+      score: Score | null;
+      /** Low / Moderate / High per nutrient, per 100 g or 100 ml. */
+      levels: NutrientLevel[];
+      /** Up to 4 chips, concerns first. */
+      highlights: Highlight[];
+      /** One line under the verdict, e.g. "High in sodium and saturated fat. Ultra-processed." */
+      reason: string;
       offError?: OffError;
     };
 
@@ -65,17 +68,133 @@ export function productView(r: Resolution): ProductView {
   }
   const additives = lookupAdditives(input.off?.additives);
   const overall = overallFor(scores.nutriscore.band, additives);
+  const levels = nutrientLevels(input);
   return {
     kind: 'scored',
     product,
     scores,
-    verdict: verdict(input),
-    processing: processing(scores.nova),
-    limits: checkLimits(input),
     overall,
     additives,
+    score: overall && scoreFor(overall, scores.inr.value, scores.nova.value),
+    levels,
+    highlights: highlightsFor(levels, scores.nova.value),
+    reason: reasonFor(levels, scores.nova.value, overall),
     offError,
   };
+}
+
+export interface Score {
+  value: number;
+  tier: Tier;
+  word: string;
+}
+
+const TIER_FOR: Record<OverallBand, Tier> = {
+  excellent: 'great',
+  good: 'moderate',
+  poor: 'occasional',
+  bad: 'rare',
+};
+const RANGE: Record<OverallBand, [number, number]> = {
+  excellent: [75, 100],
+  good: [50, 74],
+  poor: [25, 49],
+  bad: [0, 24],
+};
+export const TIER_WORD: Record<Tier, string> = {
+  great: 'Great choice',
+  moderate: 'Fine in moderation',
+  occasional: 'Eat occasionally',
+  rare: 'Eat rarely',
+};
+export const tierForScore = (value: number): Tier =>
+  value >= 75 ? 'great' : value >= 50 ? 'moderate' : value >= 25 ? 'occasional' : 'rare';
+
+/**
+ * Labelwise's own 0-100 score (approved 2026-10-30, docs/sources/README.md). The overall band picks
+ * the range, so the number never contradicts it; the India rating and NOVA place it inside the
+ * range: the average of (stars - 0.5) / 4.5 and (4 - NOVA group) / 3, middle when both are missing.
+ */
+export function scoreFor(overall: Overall, stars: number | null, novaGroup: number | null): Score {
+  const parts = [
+    stars === null ? null : (stars - 0.5) / 4.5,
+    novaGroup === null ? null : (4 - novaGroup) / 3,
+  ].filter((x): x is number => x !== null);
+  const f = parts.length ? parts.reduce((a, b) => a + b) / parts.length : 0.5;
+  const [lo, hi] = RANGE[overall.band];
+  const tier = TIER_FOR[overall.band];
+  return {
+    value: Math.round(lo + Math.min(1, Math.max(0, f)) * (hi - lo)),
+    tier,
+    word: TIER_WORD[tier],
+  };
+}
+
+export interface Highlight {
+  text: string;
+  tone: 'concern' | 'positive';
+  /** The nutrition row it points to, if any. */
+  key?: LevelKey;
+}
+
+const NOUN: Record<LevelKey, string> = {
+  energy: 'energy',
+  saturatedFat: 'saturated fat',
+  salt: 'sodium',
+  sugars: 'sugar',
+  addedSugars: 'added sugar',
+  protein: 'protein',
+};
+// Concerns in the order people tend to look for them.
+const CONCERN_ORDER: LevelKey[] = ['salt', 'saturatedFat', 'sugars', 'addedSugars', 'energy'];
+const POSITIVE_ORDER: LevelKey[] = ['sugars', 'protein', 'salt', 'saturatedFat'];
+
+const capital = (s: string) => s[0].toUpperCase() + s.slice(1);
+
+export function highlightsFor(levels: NutrientLevel[], novaGroup: number | null): Highlight[] {
+  const level = (k: LevelKey) => levels.find((l) => l.key === k)?.level;
+  const concerns: Highlight[] = CONCERN_ORDER.filter((k) => level(k) === 'high').map((key) => ({
+    key,
+    text: `High ${NOUN[key]}`,
+    tone: 'concern',
+  }));
+  // Third at most, as in the design, so four high nutrients can't push processing off the row.
+  if (novaGroup === 4) concerns.splice(2, 0, { text: 'Ultra-processed', tone: 'concern' });
+  const positives: Highlight[] = POSITIVE_ORDER.flatMap((key): Highlight[] => {
+    const l = level(key);
+    if (key === 'protein')
+      return l === 'good' ? [{ key, text: 'Good protein', tone: 'positive' }] : [];
+    return l === 'low' ? [{ key, text: `Low ${NOUN[key]}`, tone: 'positive' }] : [];
+  });
+  if (novaGroup === 1) positives.push({ text: 'Unprocessed', tone: 'positive' });
+  return [...concerns, ...positives].slice(0, 4);
+}
+
+/** Built only from the chips' facts and the additive rule, in plain words. */
+export function reasonFor(
+  levels: NutrientLevel[],
+  novaGroup: number | null,
+  overall: Overall | null,
+): string {
+  const of = (lvl: string) => levels.filter((l) => l.level === lvl && l.key !== 'protein');
+  const high = of('high').map((l) => NOUN[l.key]);
+  const low = of('low').map((l) => NOUN[l.key]);
+  const goodProtein = levels.some((l) => l.key === 'protein' && l.level === 'good');
+  const sentences = [
+    high.length && `High in ${joinAnd(high)}.`,
+    // The additive rule moves the score, so it is never cut from the line.
+    overall?.loweredBy.length &&
+      `Lowered for ${joinAnd(overall.loweredBy.map((a) => a.name.toLowerCase()))}.`,
+    novaGroup === 4 && 'Ultra-processed.',
+    (low.length || goodProtein) &&
+      capital(
+        [low.length && `low in ${joinAnd(low)}`, goodProtein && 'good protein']
+          .filter(Boolean)
+          .join(', '),
+      ) + '.',
+    novaGroup === 1 && 'Minimally processed.',
+  ].filter((s): s is string => typeof s === 'string');
+  return sentences.slice(0, 3).join(' ');
 }
 
 export type OverallBand = 'excellent' | 'good' | 'poor' | 'bad';
@@ -121,20 +240,6 @@ export function overallFor(grade: string | null, additives: Additive[] = []): Ov
 export const joinAnd = (items: string[]) =>
   items.length < 2 ? items.join('') : `${items.slice(0, -1).join(', ')} and ${items.at(-1)}`;
 
-/**
- * Built only from facts shown below it: the INR risk factors costing the most draft points. Says
- * nothing is "high": the 2022 draft defines no such limits.
- */
-export function verdict(input: ScoringInput): string | null {
-  const top = biggestPointsAgainst(input);
-  return top.length ? `Most points lost to ${joinAnd(top)}` : null;
-}
-
-export function processing(novaResult: ScoreResult): string | null {
-  if (novaResult.value !== 4) return null;
-  return novaResult.source === 'off' ? 'Ultra-processed' : 'Likely ultra-processed';
-}
-
 /** Short NOVA group names (Monteiro et al.), short enough for one line in a rating tile. */
 export const NOVA_GROUP: Record<number, string> = {
   1: 'Unprocessed',
@@ -142,27 +247,6 @@ export const NOVA_GROUP: Record<number, string> = {
   3: 'Processed',
   4: 'Ultra-processed',
 };
-
-/** Labelwise's own wording per overall band (docs/sources/README.md); follows the band, nothing more. */
-export const BAND_NOTE: Record<OverallBand, string> = {
-  excellent: 'A good choice for regular consumption.',
-  good: 'A reasonable choice for regular consumption.',
-  poor: 'Best kept for occasional consumption.',
-  bad: 'Not a healthy choice for regular consumption.',
-};
-
-/** The card under the hero: what cost the most points, then what the band means for regular use. */
-export function summaryFor(
-  verdict: string | null,
-  overall: Overall | null,
-): { title: string; note?: string } | null {
-  const lowered = overall?.loweredBy.length
-    ? ` Rated one step lower for ${joinAnd(overall.loweredBy.map((a) => a.name.toLowerCase()))}: ${overall.loweredBy.length > 1 ? 'additives' : 'an additive'} EFSA found people may eat too much of.`
-    : '';
-  const note = overall ? BAND_NOTE[overall.band] + lowered : undefined;
-  if (verdict) return { title: verdict, note };
-  return note ? { title: note } : null;
-}
 
 /** One-sentence explanations shown when a score is tapped. */
 export const EXPLAIN = {

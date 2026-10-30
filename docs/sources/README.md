@@ -66,3 +66,28 @@ Shown only on products whose overall band is Poor or Bad, in a section that is c
 5. Results are cached in memory for a day.
 
 Known limits: OFF's Indian coverage is thin, so many categories have nothing better; duplicate OFF entries of the same product can appear as options for each other.
+
+## Redesign: 0-100 score and nutrient levels (2026-10-30)
+
+### Score out of 100 (Labelwise's own, approved by the project owner 2026-10-30)
+
+The overall band (Nutri-Score grade, one step lower for an EFSA high-risk additive) picks the range, so the number never contradicts it: Excellent 75–100 (Great choice), Good 50–74 (Fine in moderation), Poor 25–49 (Eat occasionally), Bad 0–24 (Eat rarely). Inside the range, position = average of (INR stars − 0.5) / 4.5 and (4 − NOVA group) / 3; one alone if the other is missing; middle if both are. Known limit: within a range the number follows INR and NOVA, not Nutri-Score points. Positioning by Nutri-Score points would need the official 2023 grade cut-offs (Scientific Committee 2022 report); its downloads failed (HTML page / timeout), so it was not used.
+
+### Nutrient levels (per 100 g; per 100 ml for drinks in brackets)
+
+| Nutrient       | Low (at or under)                                                                                                                 | High (more than)                                 |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| Energy         | 40 kcal (20) — FSSAI claims, Sch. I "low energy"                                                                                  | 250 kcal (70) — ICMR-NIN DGI 2024 Table 15.1     |
+| Saturated fat  | 1.5 g (0.75) — FSSAI claims "low"                                                                                                 | 5 g (2.5) — UK FSA FoP guidance 2016, Tables 2–3 |
+| Sugars (total) | 5 g (2.5) — FSSAI claims "low"                                                                                                    | 22.5 g (11.25) — UK FSA 2016                     |
+| Salt           | sodium 0.12 g, i.e. salt 0.3 g — FSSAI claims "low sodium"                                                                        | 0.625 g (0.175) — ICMR-NIN                       |
+| Added sugar    | no official "low": shown as "Within limit"                                                                                        | 3 g (2) — ICMR-NIN                               |
+| Protein        | "Good" at 10% of RDA per 100 g (5% per 100 ml) = 5.4 g (2.7) — FSSAI claims "source of protein"; RDA 54 g/day from DGI 2024 p. 75 | —                                                |
+
+Between Low and High is Moderate; missing values are Unknown. High is checked first, so where sources overlap (drinks' salt: ICMR high 0.175 g is below FSSAI "low" 0.3 g) the stricter one wins.
+
+Files: `fsa-fop-guidance-2016.pdf` (Table 2 p. 19, Table 3 p. 20), `fssai-advertising-claims-compendium-2021.pdf` (Schedule I pp. 9–10).
+
+### Additive concern words (Ingredients section)
+
+EFSA overexposure finding from OFF: high → "Higher concern", moderate → "Some concern", no → "Low concern", none → "No data".

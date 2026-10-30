@@ -49,6 +49,8 @@ beforeEach(async () => {
   await store.init();
   jest.mocked(getStore).mockResolvedValue(store);
   mockPush.mockClear();
+  // Poor and Bad products load alternatives on their own; none unless a test says so.
+  jest.mocked(searchCategory).mockResolvedValue({ status: 'ok', codes: [] });
 });
 
 const renderWithQuery = (ui: ReactElement) =>
@@ -67,60 +69,78 @@ const renderWithQuery = (ui: ReactElement) =>
     </QueryClientProvider>,
   );
 
+const goodCandidate = (code: string, name: string): OffProduct => ({
+  code,
+  product_name: name,
+  brands: 'Test',
+  nutriscore_grade: 'b',
+  nutriments: {
+    'energy-kcal_100g': 380,
+    fat_100g: 7,
+    carbohydrates_100g: 66,
+    proteins_100g: 13,
+    sugars_100g: 1,
+    'saturated-fat_100g': 1.2,
+    sodium_100g: 0.006,
+    fiber_100g: 10,
+  },
+});
+const parleInBiscuits = {
+  ...fixtures['8901719101038'],
+  compared_to_category: 'en:biscuits',
+} as OffProduct;
+
 describe('ProductScreen', () => {
-  test('scored product: rating, reasons and attribution', async () => {
+  test('scored product: score ring, chips, nutrition levels, ratings and footer', async () => {
     jest.mocked(fetchProduct).mockResolvedValue({ status: 'found', product: off['8901719101038'] });
     await renderWithQuery(<ProductScreen barcode="8901719101038" />);
 
+    // Parle-G: Nutri-Score E (Bad, 0-24), India rating 2 stars, NOVA 4.
+    expect(await screen.findByLabelText(/^Score 4 of 100, eat rarely\./)).toBeOnTheScreen();
+    expect(screen.getByLabelText('High saturated fat')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Ultra-processed')).toBeOnTheScreen();
     expect(
-      await screen.findByText('Most points lost to saturated fat and energy'),
+      screen.getByText('Combines Nutri-Score E, India rating 2★ (draft) and NOVA 4'),
     ).toBeOnTheScreen();
-    expect(
-      screen.getByLabelText(/India rating \(draft\): 2 of 5 stars, estimated, main score/),
-    ).toBeOnTheScreen();
-    expect(screen.getByLabelText('Nutri-Score: Grade E, A (best) to E')).toBeOnTheScreen();
-    expect(screen.getByLabelText('Processing: NOVA 4, Ultra-processed')).toBeOnTheScreen();
-    // Overall band from Nutri-Score E, and Nutri-Score's own points per nutrient.
-    expect(
-      screen.getByLabelText('Overall: Bad, from Nutri-Score E. Ultra-processed'),
-    ).toBeOnTheScreen();
-    expect(screen.getByText('Not a healthy choice for regular consumption.')).toBeOnTheScreen();
-    // ICMR-NIN limits: energy and added sugar (25 g on OFF) are over.
     expect(screen.getByLabelText(/^Energy, \d+ kcal, High$/)).toBeOnTheScreen();
-    expect(screen.getByLabelText('Protein, 7.1 g')).toBeOnTheScreen();
-    expect(screen.queryByLabelText(/^Salt/)).toBeNull();
-    expect(screen.getByLabelText('Sugars, 24.8 g, Added 25 g, High')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Saturated fat, 6.2 g, High')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Added sugar, 25 g, High')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Protein, 7.1 g, Good')).toBeOnTheScreen();
 
     await fireEvent.press(screen.getByLabelText('Save product'));
     expect(await screen.findByLabelText('Remove from saved')).toBeOnTheScreen();
     expect(await store.isSaved('8901719101038')).toBe(true);
-    // Each system explains itself, under a fold: FSSAI values under INR, OFF's points under Nutri-Score.
-    await fireEvent.press(screen.getByText('How the ratings were worked out'));
+
+    // "How it's scored" opens All ratings: one line per rating, details on request.
+    await fireEvent.press(screen.getByText('How it’s scored'));
+    expect(screen.getByLabelText(/^Nutri-Score, grade E\./)).toBeOnTheScreen();
+    expect(screen.getByLabelText(/^India rating, 2 of 5 stars\./)).toBeOnTheScreen();
+    expect(
+      screen.getByLabelText(/^Processing, NOVA 4\. NOVA 4: ultra-processed/),
+    ).toBeOnTheScreen();
+    expect(
+      screen.queryByText('Saturated fat 6.2 g per 100 g: 6 of 25 points against'),
+    ).not.toBeOnTheScreen();
+    await fireEvent.press(screen.getByText('Show details'));
     expect(
       screen.getByText('Saturated fat 6.2 g per 100 g: 6 of 25 points against'),
     ).toBeOnTheScreen();
-    expect(screen.getByText(/Sugars 24.8 g per 100 g: 7 of 15 points against/)).toBeOnTheScreen();
+    expect(screen.getByText(/The score is Labelwise’s own/)).toBeOnTheScreen();
     expect(screen.getByText(/not medical or dietary advice/)).toBeOnTheScreen();
-    expect(screen.getByText('Data © Open Food Facts contributors (ODbL)')).toBeOnTheScreen();
+    expect(screen.getByText(/Data © Open Food Facts contributors \(ODbL\)/)).toBeOnTheScreen();
   });
 
-  test('chip says "Not known" when the value for a limit is missing, not "No limit"', async () => {
+  test('a missing value reads Unknown, never a level', async () => {
     const parle = off['8901719101038'];
     const { 'added-sugars_100g': _added, ...nutriments } = parle.nutriments ?? {};
     jest
       .mocked(fetchProduct)
       .mockResolvedValue({ status: 'found', product: { ...parle, nutriments } });
     await renderWithQuery(<ProductScreen barcode="8901719101038" />);
-
-    expect(
-      await screen.findByLabelText('Sugars, 24.8 g, Added not known, limit not checked'),
-    ).toBeOnTheScreen();
-    expect(screen.getByLabelText(/^Saturated fat, 6.2 g, no official limit$/)).toBeOnTheScreen();
-    expect(screen.getByLabelText(/^Energy, \d+ kcal, High$/)).toBeOnTheScreen();
-    expect(screen.getByText(/Not known means the value needed/)).toBeOnTheScreen();
+    expect(await screen.findByLabelText('Added sugar, Not listed, Unknown')).toBeOnTheScreen();
   });
 
-  test('per serving view scales the amounts and keeps ratings per 100 g', async () => {
+  test('per serving view scales the amounts and drops the levels', async () => {
     jest.mocked(fetchProduct).mockResolvedValue({
       status: 'found',
       product: { ...off['8901719101038'], serving_quantity: 56.4, serving_quantity_unit: 'g' },
@@ -128,119 +148,72 @@ describe('ProductScreen', () => {
     await renderWithQuery(<ProductScreen barcode="8901719101038" />);
 
     await fireEvent.press(await screen.findByText('Per serving (56.4 g)'));
-    // 24.8 g sugars per 100 g x 56.4 / 100 = 14 g; no High / OK chip in this view.
-    expect(await screen.findByLabelText('Sugars, 14 g, Added 14.1 g')).toBeOnTheScreen();
-    expect(
-      screen.getByText(/Ratings and High \/ OK checks always use per 100 g/),
-    ).toBeOnTheScreen();
-    expect(screen.getByText('(per serving)')).toBeOnTheScreen();
-    expect(screen.getByLabelText(/^Overall: Bad/)).toBeOnTheScreen();
-
+    // 24.8 g sugars per 100 g x 56.4 / 100 = 14 g.
+    expect(screen.getByLabelText('Sugars, 14 g')).toBeOnTheScreen();
+    expect(screen.getByText(/Levels always use per 100 g/)).toBeOnTheScreen();
     await fireEvent.press(screen.getByText('Per 100 g'));
-    expect(screen.getByLabelText(/^Sugars, 24.8 g/)).toBeOnTheScreen();
+    expect(screen.getByLabelText('Sugars, 24.8 g, High')).toBeOnTheScreen();
   });
 
   test('no serving size on file means no toggle', async () => {
     jest.mocked(fetchProduct).mockResolvedValue({ status: 'found', product: off['8901719101038'] });
     await renderWithQuery(<ProductScreen barcode="8901719101038" />);
-    await screen.findByLabelText(/^Overall/);
+    await screen.findByLabelText(/^Score/);
     expect(screen.queryByText(/^Per serving/)).not.toBeOnTheScreen();
   });
 
-  test('healthier options load when opened and open the chosen product', async () => {
-    const better: OffProduct = {
-      code: '8900000000002',
-      product_name: 'Plain oat biscuits',
-      brands: 'Test',
-      nutriscore_grade: 'b',
-      nutriments: {
-        'energy-kcal_100g': 380,
-        fat_100g: 7,
-        carbohydrates_100g: 66,
-        proteins_100g: 13,
-        sugars_100g: 1,
-        'saturated-fat_100g': 1.2,
-        sodium_100g: 0.006,
-        fiber_100g: 10,
-      },
-    };
-    jest.mocked(fetchProduct).mockImplementation(async (code) =>
-      code === better.code
-        ? { status: 'found', product: better }
-        : {
-            status: 'found',
-            product: { ...off['8901719101038'], compared_to_category: 'en:biscuits' },
-          },
-    );
+  test('better alternatives load on their own and open the chosen product', async () => {
+    const better = goodCandidate('8900000000002', 'Plain oat biscuits');
+    jest.mocked(fetchProduct).mockImplementation(async (code) => ({
+      status: 'found',
+      product: code === better.code ? better : parleInBiscuits,
+    }));
     jest.mocked(searchCategory).mockResolvedValue({ status: 'ok', codes: [better.code!] });
     await renderWithQuery(<ProductScreen barcode="8901719101038" />);
 
-    await fireEvent.press(await screen.findByText('Healthier options'));
+    const card = await screen.findByLabelText(
+      /^Plain oat biscuits, Test, score \d+ of 100, (great choice|fine in moderation)$/,
+    );
     expect(jest.mocked(searchCategory).mock.calls[0].slice(0, 2)).toEqual([
       'en:biscuits',
       ['a', 'b'],
     ]);
-    const row = await screen.findByLabelText('Plain oat biscuits, Test, overall Good');
-    expect(
-      screen.getByText('Biscuits sold in India that rate Good or Excellent.'),
-    ).toBeOnTheScreen();
-    await fireEvent.press(row);
+    expect(screen.getByText('Biscuits sold in India that score higher.')).toBeOnTheScreen();
+    await fireEvent.press(card);
     expect(mockPush).toHaveBeenCalledWith({
       pathname: '/product/[barcode]',
       params: { barcode: '8900000000002' },
     });
   });
 
-  test('with nothing good among biscuits, it says the options are other sweet snacks', async () => {
-    const bar: OffProduct = {
-      code: '8900000000003',
-      product_name: 'Nut bar',
-      nutriscore_grade: 'b',
-      nutriments: {
-        'energy-kcal_100g': 380,
-        fat_100g: 7,
-        carbohydrates_100g: 66,
-        proteins_100g: 13,
-        sugars_100g: 1,
-        'saturated-fat_100g': 1.2,
-        sodium_100g: 0.006,
-        fiber_100g: 10,
-      },
-    };
-    jest.mocked(fetchProduct).mockImplementation(async (code) =>
-      code === bar.code
-        ? { status: 'found', product: bar }
-        : {
-            status: 'found',
-            product: { ...off['8901719101038'], compared_to_category: 'en:biscuits' },
-          },
-    );
+  test('with nothing good among biscuits, alternatives are other sweet snacks', async () => {
+    const bar = goodCandidate('8900000000003', 'Nut bar');
+    jest.mocked(fetchProduct).mockImplementation(async (code) => ({
+      status: 'found',
+      product: code === bar.code ? bar : parleInBiscuits,
+    }));
     jest.mocked(searchCategory).mockImplementation(async (category) => ({
       status: 'ok',
       codes: category === 'en:sweet-snacks' ? [bar.code!] : [],
     }));
     await renderWithQuery(<ProductScreen barcode="8901719101038" />);
-    await fireEvent.press(await screen.findByText('Healthier options'));
     expect(
       await screen.findByText(
-        'Nothing in biscuits rates Good or Excellent, so these are other sweet snacks sold in India that do.',
+        'Nothing in biscuits scores Good or better, so these are other sweet snacks.',
       ),
     ).toBeOnTheScreen();
-    expect(screen.getByLabelText('Nut bar, overall Good')).toBeOnTheScreen();
+    expect(screen.getByLabelText(/^Nut bar, Test, score/)).toBeOnTheScreen();
   });
 
-  test('additives section lists each additive with its EFSA finding', async () => {
+  test('ingredients list each additive with its EFSA-based concern', async () => {
     jest.mocked(fetchProduct).mockResolvedValue({ status: 'found', product: off['8902080104581'] });
     await renderWithQuery(<ProductScreen barcode="8902080104581" />);
-    // Opens on its own because Pepsi has a high-risk additive.
+    await fireEvent.press(await screen.findByLabelText('Ingredients, 3 additives'));
     expect(
-      await screen.findByLabelText(
-        /^Phosphoric acid, INS 338, .*EFSA: high risk of eating too much/,
-      ),
+      screen.getByLabelText(/^Phosphoric acid, INS 338 · .*, Higher concern,/),
     ).toBeOnTheScreen();
-    expect(screen.getByText('Moderate risk')).toBeOnTheScreen();
-    expect(screen.getByText('No risk found')).toBeOnTheScreen();
-    expect(screen.getByText('(3)')).toBeOnTheScreen();
+    expect(screen.getByText('Some concern')).toBeOnTheScreen();
+    expect(screen.getByText('Low concern')).toBeOnTheScreen();
   });
 
   test('not enough data names the missing nutrients', async () => {
@@ -248,18 +221,18 @@ describe('ProductScreen', () => {
     jest.mocked(fetchProduct).mockResolvedValue({ status: 'found', product: maggi });
     await renderWithQuery(<ProductScreen barcode="8901058000290" />);
 
-    expect(await screen.findByText('Not enough data to rate this')).toBeOnTheScreen();
+    expect(await screen.findByText('Not enough data to score this')).toBeOnTheScreen();
     expect(
       screen.getByText(/energy, saturated fat, total sugars and sodium yet/),
     ).toBeOnTheScreen();
   });
 
-  test('not found has its own wording', async () => {
+  test('not found offers the label scan first', async () => {
     jest.mocked(fetchProduct).mockResolvedValue({ status: 'not_found' });
     await renderWithQuery(<ProductScreen barcode="8900000000001" />);
-    expect(await screen.findByText('Product not found')).toBeOnTheScreen();
+    expect(await screen.findByText('We couldn’t find this product')).toBeOnTheScreen();
 
-    await fireEvent.press(screen.getByText('Scan nutrition label'));
+    await fireEvent.press(screen.getByText('Scan the label instead'));
     expect(mockPush).toHaveBeenCalledWith({
       pathname: '/entry/[barcode]',
       params: { barcode: '8900000000001', scan: 'camera' },
@@ -269,12 +242,13 @@ describe('ProductScreen', () => {
       pathname: '/entry/[barcode]',
       params: { barcode: '8900000000001' },
     });
+    expect(screen.getByText('Add it to Open Food Facts')).toBeOnTheScreen();
   });
 
   test('offline without a saved copy offers a retry', async () => {
     jest.mocked(fetchProduct).mockResolvedValue({ status: 'error', error: 'offline' });
     await renderWithQuery(<ProductScreen barcode="8901719101038" />);
-    expect(await screen.findByText(/You’re offline/)).toBeOnTheScreen();
+    expect(await screen.findByText('You’re offline')).toBeOnTheScreen();
     expect(screen.getByText('Try again')).toBeOnTheScreen();
   });
 });
@@ -324,7 +298,7 @@ describe('EntryScreen', () => {
         <EntryScreen barcode="8901058000290" />
       </>,
     );
-    expect(await screen.findByText('Not enough data to rate this')).toBeOnTheScreen();
+    expect(await screen.findByText('Not enough data to score this')).toBeOnTheScreen();
 
     const type = (label: string, value: string) =>
       fireEvent.changeText(screen.getByLabelText(label), value);
@@ -340,8 +314,10 @@ describe('EntryScreen', () => {
     await type('Salt (g)', '3.2');
     await fireEvent.press(screen.getByText('Save'));
 
-    expect(await screen.findByLabelText(/India rating \(draft\): .* stars/)).toBeOnTheScreen();
-    expect(screen.getByText('1280 mg (yours)')).toBeOnTheScreen();
+    // No Nutri-Score, so no 0-100 score, but the India rating now works from the user's values.
+    expect(await screen.findByText('No score yet')).toBeOnTheScreen();
+    expect(screen.getByLabelText(/^All ratings, – · [\d.]+★ · NOVA 4$/)).toBeOnTheScreen();
+    expect(screen.getByLabelText('Sodium, 1,280 mg, your value, High')).toBeOnTheScreen();
     expect(mockBack).toHaveBeenCalled();
     expect((await store.getUserEntry('8901058000290'))?.nutrition).toMatchObject({
       energyKcal: 427,
@@ -373,7 +349,7 @@ describe('ScanScreen', () => {
 });
 
 describe('HistoryScreen', () => {
-  test('lists recent scans with names and the overall band, and saved products', async () => {
+  test('lists recent scans with names and the score, and saved products', async () => {
     await store.putCached('8901719101038', off['8901719101038'], 1);
     await store.addScan('8901719101038', 1);
     await store.addScan('8900000000001', 2);
@@ -383,7 +359,7 @@ describe('HistoryScreen', () => {
     expect(await screen.findByText('Parle - G')).toBeOnTheScreen();
     expect(screen.getByText('Parle')).toBeOnTheScreen();
     expect(screen.getByText('8900000000001')).toBeOnTheScreen();
-    expect(screen.getByLabelText('Overall: Bad')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Score 4 of 100, eat rarely')).toBeOnTheScreen();
     expect(screen.getByText('Not found or not loaded')).toBeOnTheScreen();
 
     await fireEvent.press(screen.getByText('Saved'));

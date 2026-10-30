@@ -1,105 +1,113 @@
+// Design tokens from design/DESIGN.md (light and dark). Older names (card, muted, primary...) are
+// aliases kept while the remaining screens move to the new names.
+
 import { useColorScheme } from 'react-native';
 
-const light = {
-  bg: '#ffffff',
-  card: '#f2f2f6',
-  text: '#111111',
-  muted: '#55555c',
-  border: '#d1d1d6',
-  primary: '#0b6e4f',
-  onPrimary: '#ffffff',
-  link: '#0a58ca',
-  pro: '#0b6e4f',
-  con: '#b4423c',
-  star: '#c98a00',
-  skeleton: '#e4e4ea',
-  warningBg: '#fff4d6',
+const core = {
+  light: {
+    bg: '#F6F6F3',
+    surface: '#FFFFFF',
+    fill: '#EFEFEC',
+    border: '#E2E2DE',
+    text: '#1C1C1E',
+    textSecondary: '#5E6166',
+    textTertiary: '#6E7176',
+    accent: '#0E6B4E',
+    accentTint: '#E3F0EA',
+    onAccent: '#FFFFFF',
+    grabber: '#C9C9C4',
+  },
+  dark: {
+    bg: '#1A1B1D',
+    surface: '#25272A',
+    fill: '#2E3034',
+    border: '#3A3D41',
+    text: '#ECECEA',
+    textSecondary: '#A5A8AD',
+    textTertiary: '#8E9196',
+    accent: '#5DBB93',
+    accentTint: '#1E3229',
+    onAccent: '#0F1A15',
+    grabber: '#4A4D52',
+  },
 };
 
+export type Tier = 'great' | 'moderate' | 'occasional' | 'rare';
+export interface TierColors {
+  ring: string;
+  tint: string;
+  fg: string;
+}
+
+const TIERS: Record<'light' | 'dark', Record<Tier, TierColors>> = {
+  light: {
+    great: { ring: '#2E8A66', tint: '#E5F2E9', fg: '#1D6A41' },
+    moderate: { ring: '#C28A12', tint: '#FAF0D7', fg: '#7A5600' },
+    occasional: { ring: '#D06A2A', tint: '#FCE7D8', fg: '#9A4511' },
+    rare: { ring: '#B8463F', tint: '#F8E2DF', fg: '#9C2F28' },
+  },
+  dark: {
+    great: { ring: '#5DBF85', tint: '#1F3328', fg: '#7FD3A2' },
+    moderate: { ring: '#E8B84A', tint: '#3A3020', fg: '#F0C565' },
+    occasional: { ring: '#EE9459', tint: '#3D2A1E', fg: '#F4A472' },
+    rare: { ring: '#E2766D', tint: '#3E2423', fg: '#F0948C' },
+  },
+};
+
+function build(scheme: 'light' | 'dark') {
+  const c = core[scheme];
+  const tiers = TIERS[scheme];
+  return {
+    ...c,
+    tiers,
+    // Aliases for screens not yet redesigned.
+    card: c.surface,
+    muted: c.textSecondary,
+    primary: c.accent,
+    onPrimary: c.onAccent,
+    link: c.accent,
+    pro: tiers.great.fg,
+    con: tiers.rare.fg,
+    star: tiers.moderate.ring,
+    skeleton: c.fill,
+    warningBg: tiers.moderate.tint,
+  };
+}
+
+const light = build('light');
+const dark = build('dark');
 export type Theme = typeof light;
-
-const dark: Theme = {
-  bg: '#000000',
-  card: '#1c1c1e',
-  text: '#f5f5f7',
-  muted: '#aeaeb2',
-  border: '#3a3a3c',
-  primary: '#4cc38a',
-  onPrimary: '#002114',
-  link: '#6ea8fe',
-  pro: '#4cc38a',
-  con: '#f08a80',
-  star: '#ffc93c',
-  skeleton: '#2c2c2e',
-  warningBg: '#3d3000',
-};
 
 export function useTheme(): Theme {
   return useColorScheme() === 'dark' ? dark : light;
 }
 
-/** Band colours always appear next to the band's letter or number, never alone. */
-export const NUTRISCORE_COLORS: Record<string, { bg: string; fg: string }> = {
-  // Official Nutri-Score hues, softened to match the app; the letter always carries the grade.
-  A: { bg: '#3f8f5f', fg: '#ffffff' },
-  B: { bg: '#a3c26e', fg: '#1f2a10' },
-  C: { bg: '#e8c868', fg: '#3a2e05' },
-  D: { bg: '#e6a466', fg: '#3a2105' },
-  E: { bg: '#d9726d', fg: '#ffffff' },
+/** Camera screens use a fixed dark overlay whatever the system appearance. */
+export const CAMERA = {
+  control: 'rgba(20,20,20,0.55)',
+  controlBorder: 'rgba(255,255,255,0.18)',
+  hint: 'rgba(20,20,20,0.6)',
+  active: '#7FD3A2',
 };
 
-export const NOVA_COLORS: Record<number, { bg: string; fg: string }> = {
-  1: { bg: '#3f8f5f', fg: '#ffffff' },
-  2: { bg: '#e8c868', fg: '#3a2e05' },
-  3: { bg: '#e6a466', fg: '#3a2105' },
-  4: { bg: '#d9726d', fg: '#ffffff' },
-};
+export const SPACE = { xxs: 4, xs: 8, sm: 12, md: 16, lg: 20, xl: 24, xxl: 32, xxxl: 40 };
+export const RADIUS = { card: 16, button: 14, thumb: 10 };
 
-/** Overall band colours (dark green, light green, orange, red), always shown with the band word. */
-export const OVERALL_COLORS: Record<'excellent' | 'good' | 'poor' | 'bad', string> = {
-  excellent: '#3f9a6e',
-  good: '#8db35a',
-  poor: '#e0954a',
-  bad: '#dc6460',
-};
+/** Type styles (iOS text styles). Sizes scale with Dynamic Type through allowFontScaling. */
+export const TYPE = {
+  largeTitle: { fontSize: 34, lineHeight: 41, fontWeight: '700' },
+  title: { fontSize: 22, lineHeight: 28, fontWeight: '700' },
+  headlineL: { fontSize: 20, lineHeight: 25, fontWeight: '600' },
+  headline: { fontSize: 17, lineHeight: 22, fontWeight: '600' },
+  body: { fontSize: 17, lineHeight: 22, fontWeight: '400' },
+  subheadline: { fontSize: 15, lineHeight: 20, fontWeight: '400' },
+  footnote: { fontSize: 13, lineHeight: 18, fontWeight: '400' },
+  caption: { fontSize: 11, lineHeight: 13, fontWeight: '600' },
+} as const;
 
-/** A see-through version of a #rrggbb colour, for tinted card backgrounds in light and dark mode. */
+/** A see-through version of a #rrggbb colour. */
 export const tint = (hex: string, opacity: number) =>
   hex +
   Math.round(opacity * 255)
     .toString(16)
     .padStart(2, '0');
-
-/** Accent per nutrient card and rating tile; decoration only, the words carry the meaning. */
-export const ACCENT = {
-  saturatedFat: '#d9726d',
-  energy: '#dca54c',
-  sugars: '#9479c4',
-  protein: '#4f9e77',
-  inr: '#5b8fd6',
-  nutriscore: '#d9726d',
-  nova: '#9479c4',
-};
-
-type Band = keyof typeof OVERALL_COLORS;
-
-/** Soft header/pill background and readable text per band (text ≥ 4.5:1 on its soft colour). */
-const BAND_SHADES: Record<'light' | 'dark', Record<Band, { soft: string; text: string }>> = {
-  light: {
-    excellent: { soft: '#edf6f0', text: '#2e6f50' },
-    good: { soft: '#f2f7ea', text: '#4a6a24' },
-    poor: { soft: '#fbf3ea', text: '#95551c' },
-    bad: { soft: '#fbefee', text: '#a8403c' },
-  },
-  dark: {
-    excellent: { soft: '#13231a', text: '#7cc49d' },
-    good: { soft: '#1d2414', text: '#b4cf8c' },
-    poor: { soft: '#2b2014', text: '#e6b07a' },
-    bad: { soft: '#2e1a1a', text: '#eb9b96' },
-  },
-};
-
-export function useBandShades(band: Band | undefined) {
-  const scheme = useColorScheme() === 'dark' ? 'dark' : 'light';
-  return band ? { dot: OVERALL_COLORS[band], ...BAND_SHADES[scheme][band] } : undefined;
-}

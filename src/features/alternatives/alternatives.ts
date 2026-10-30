@@ -10,9 +10,8 @@ import {
 } from '../../data/offClient';
 import { mergeProduct } from '../../data/resolver';
 import { KCAL_PER_G } from '../../scoring/units';
-import { productView, type Overall, type OverallBand } from '../product/productView';
+import { productView, type Overall, type OverallBand, type Score } from '../product/productView';
 
-const ORDER: OverallBand[] = ['excellent', 'good', 'poor', 'bad'];
 /** Only Poor and Bad products get suggestions, and only Good or Excellent ones are suggested. */
 export const wantsAlternatives = (band?: OverallBand) => band === 'poor' || band === 'bad';
 const isRecommendable = (band: OverallBand) => band === 'excellent' || band === 'good';
@@ -68,6 +67,7 @@ export interface Alternative {
   barcode: string;
   off: OffProduct;
   overall: Overall;
+  score: Score;
 }
 
 /** Candidates that pass the data check and rate Good or Excellent, best first, at most `max`. */
@@ -76,22 +76,17 @@ export function pickAlternatives(
   candidates: OffProduct[],
   max = 5,
 ): Alternative[] {
-  const picked: (Alternative & { points: number })[] = [];
+  const picked: Alternative[] = [];
   for (const off of candidates) {
     const barcode = off.code;
     if (!barcode || barcode === current.barcode || !energyConsistent(off.nutriments)) continue;
     const view = productView({ status: 'ok', product: mergeProduct(barcode, off) });
-    if (view.kind !== 'scored' || !view.overall) continue;
+    if (view.kind !== 'scored' || !view.overall || !view.score) continue;
     if (!isRecommendable(view.overall.band)) continue;
-    picked.push({ barcode, off, overall: view.overall, points: view.scores.nutriscore.value ?? 0 });
+    picked.push({ barcode, off, overall: view.overall, score: view.score });
   }
-  return picked
-    .sort(
-      (a, b) =>
-        ORDER.indexOf(a.overall.band) - ORDER.indexOf(b.overall.band) || a.points - b.points,
-    )
-    .slice(0, max)
-    .map(({ points: _, ...a }) => a);
+  // Highest score first.
+  return picked.sort((a, b) => b.score.value - a.score.value).slice(0, max);
 }
 
 export type AlternativesResult =

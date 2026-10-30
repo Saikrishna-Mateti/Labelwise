@@ -9,7 +9,7 @@ import type { Scan } from '../../data/db';
 import { mergeProduct } from '../../data/resolver';
 import { useTheme } from '../../theme';
 import { productView } from '../product/productView';
-import { Badge, ScoreBadge } from '../product/ScoreTiles';
+import { ScoreBadge } from '../../components/score';
 import {
   useClearSaved,
   useClearScans,
@@ -213,10 +213,12 @@ function Row({
               {scan.off.brands}
             </Text>
           )}
-          {view?.kind === 'scored' ? (
-            <ScoreBadge scores={view.scores} overall={view.overall} />
+          {view?.kind === 'scored' && view.score ? (
+            <ScoreBadge {...view.score} />
           ) : (
-            status && <Badge label={status} color={t.text} background={t.skeleton} />
+            <Text style={[styles.status, { color: t.textSecondary }]}>
+              {status ?? 'No score yet'}
+            </Text>
           )}
           <Small>{when(scan.scannedAt)}</Small>
         </View>
@@ -240,6 +242,7 @@ const styles = StyleSheet.create({
   text: { flex: 1, gap: 4 },
   name: { fontSize: 16, fontWeight: '600' },
   brand: { fontSize: 13, fontWeight: '400' },
+  status: { fontSize: 13 },
   delete: { justifyContent: 'center', paddingHorizontal: 24, borderRadius: 16, marginLeft: 8 },
   deleteText: { color: '#ffffff', fontWeight: '600', fontSize: 16 },
 });
