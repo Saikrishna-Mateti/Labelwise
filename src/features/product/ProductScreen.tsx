@@ -20,6 +20,8 @@ import { useTheme } from '../../theme';
 import { ocrSupported } from '../entry/recognise';
 import { usePrimaryMethod, useProduct, type PrimaryMethod } from '../queries';
 import { joinAnd, productView, summaryFor, type ProductScores } from './productView';
+import { HealthierOptions } from '../alternatives/HealthierOptions';
+import { wantsAlternatives } from '../alternatives/alternatives';
 import { Additives } from './Additives';
 import { Hero, SummaryCard } from './Hero';
 import { NutritionCards } from './NutritionCards';
@@ -155,6 +157,16 @@ export function ProductScreen({ barcode }: { barcode: string }) {
           >
             <Additives additives={view.additives} />
           </Collapsible>
+          {view.product.off && view.overall && wantsAlternatives(view.overall.band) && (
+            // Closed until opened, so OFF's search is only asked when someone wants it.
+            <Collapsible title="Healthier options" sf="arrow.triangle.swap">
+              <HealthierOptions
+                barcode={view.product.barcode}
+                band={view.overall.band}
+                off={view.product.off}
+              />
+            </Collapsible>
+          )}
           <SectionTitle>All ratings</SectionTitle>
           <ScoreTiles scores={view.scores} primary={primary} />
           {hasUserValues(view.product) ? (

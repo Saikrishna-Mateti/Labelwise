@@ -25,6 +25,7 @@ export const OFF_FIELDS = [
   'image_front_small_url',
   'nutriscore_data',
   'serving_quantity',
+  'compared_to_category',
   'serving_quantity_unit',
 ] as const;
 
@@ -33,6 +34,8 @@ export interface OffProduct {
   product_name?: string;
   brands?: string;
   categories_tags?: string[];
+  /** OFF's most specific known category, the one it compares products within. */
+  compared_to_category?: string;
   nutriments?: Record<string, number | string | undefined>;
   nova_group?: number;
   nutriscore_grade?: string;

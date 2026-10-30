@@ -54,3 +54,15 @@ What the EFSA finding means: whether estimated usual intake in some population g
 Overall band rule (Labelwise's own, chosen by the project owner): any additive with an EFSA "high" finding lowers the band one step (Excellent → Good → Poor → Bad; Bad stays Bad). Several high-risk additives still mean one step. Moderate is shown but does not change the band. The Nutri-Score grade itself is shown unchanged.
 
 Considered and not used: a Zabel (zabel.app/ins) page listing 65 INS codes with its own "points out of 20" penalties. It is a competitor's own method with no citations in the copy supplied, and its licence is unknown.
+
+## Healthier options (Phase 2, 2026-10-26)
+
+Shown only on products whose overall band is Poor or Bad, in a section that is closed until opened (so OFF's search is asked only when someone wants it). Rules, all Labelwise's own, chosen by the project owner:
+
+1. Category: OFF's `compared_to_category` (its most specific known category), then the tag just above it in `categories_tags` if the first finds nothing better. Free-text, non-taxonomy tags are skipped. Snacks only: if both find nothing Good or Excellent, the product's snack group (`en:sweet-snacks`, else `en:salty-snacks`, else `en:snacks`) is searched, and the screen says these are other snacks (added 2026-10-26). Drinks and meals get no wider fallback.
+2. Search: OFF search service (`search.openfoodfacts.org`), read-only, products tagged as sold in India, Nutri-Score grades A and B (the only grades that can give Good or Excellent), lowest Nutri-Score points first, 8 results. The search index can lag OFF's live data (it returned grade E products for an A–D query), so its grade is only a first filter.
+3. Each candidate is fetched from the product API one at a time and re-scored exactly like a scanned product, additive rule included. Only Good or Excellent qualifies (changed 2026-10-26 from "strictly better", which suggested Poor products for Bad ones). At most 5, best band first, then lowest Nutri-Score points.
+4. Data check: stated energy must be within 30% (or 15 kcal) of 9 × fat + 4 × carbohydrate + 4 × protein (energy factors from ICMR-NIN DGI 2024, p. 70: "each gram of lipid gives energy of 9 Kcal, while protein or carbohydrates give only 4 Kcal"). The 30% / 15 kcal tolerance is ours; it allows for fibre and rounding on labels. Missing values fail. Example caught by re-scoring: a bourbon biscuit graded A on OFF with no nutrition values at all.
+5. Results are cached in memory for a day.
+
+Known limits: OFF's Indian coverage is thin, so many categories have nothing better; duplicate OFF entries of the same product can appear as options for each other.
