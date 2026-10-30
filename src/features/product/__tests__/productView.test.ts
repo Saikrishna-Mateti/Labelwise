@@ -2,7 +2,15 @@ import type { OffProduct } from '../../../data/normalize';
 import { mergeProduct } from '../../../data/resolver';
 import fixtures from '../../../scoring/__tests__/fixtures/off-products.json';
 import { lookupAdditives } from '../../../scoring/additives';
-import { overallFor, productView, summaryFor } from '../productView';
+import type { NutrientLevel } from '../../../scoring/levels';
+import {
+  highlightsFor,
+  overallFor,
+  productView,
+  reasonFor,
+  scoreFor,
+  tierForScore,
+} from '../productView';
 
 const off = fixtures as Record<string, OffProduct>;
 const ok = (p: OffProduct, offError?: 'offline') => ({
@@ -79,12 +87,6 @@ test('a high EFSA intake risk additive lowers the band one step; Bad stays Bad',
   expect(overallFor('A', lookupAdditives(['en:e621', 'en:e250']))?.label).toBe('Good');
 });
 
-test('summary says when additives lowered the band', () => {
-  expect(summaryFor(null, overallFor('B', lookupAdditives(['en:e621'])))?.title).toBe(
-    'Best kept for occasional consumption. Rated one step lower for monosodium glutamate: an additive EFSA found people may eat too much of.',
-  );
-});
-
 test('Pepsi: additives come through, most concerning first', () => {
   const view = productView(ok(off['8902080104581']));
   expect(view.kind === 'scored' && view.additives.map((a) => a.ins)).toEqual([
@@ -94,18 +96,70 @@ test('Pepsi: additives come through, most concerning first', () => {
   ]);
 });
 
-test('summary card: points lost first, then a line that follows the overall band', () => {
-  const verdict = 'Most points lost to total sugars and energy';
-  expect(summaryFor(verdict, overallFor('E'))).toEqual({
-    title: verdict,
-    note: 'Not a healthy choice for regular consumption.',
+describe('0-100 score (Labelwise, approved 2026-10-30)', () => {
+  const a = overallFor('A')!;
+  test('the band picks the range; India rating and NOVA place it inside', () => {
+    expect(scoreFor(a, 4, 1)).toEqual({ value: 97, tier: 'great', word: 'Great choice' }); // Quaker
+    expect(scoreFor(overallFor('B')!, 4, 1).value).toBe(71);
+    expect(scoreFor(overallFor('D')!, 2, 4).value).toBe(29); // Lay's
+    expect(scoreFor(overallFor('E')!, null, 4).value).toBe(0); // Maggi
+    expect(scoreFor(a, null, null).value).toBe(88); // middle of 75-100
   });
-  expect(summaryFor(verdict, overallFor('C'))?.note).toBe('Best kept for occasional consumption.');
-  expect(summaryFor(verdict, overallFor('A'))?.note).toBe('A good choice for regular consumption.');
-  // Nothing lost: the band line becomes the title. No band and no verdict: no card.
-  expect(summaryFor(null, overallFor('A'))).toEqual({
-    title: 'A good choice for regular consumption.',
+
+  test('never leaves its band, so it never contradicts the verdict', () => {
+    for (const g of ['A', 'B', 'C', 'D', 'E']) {
+      const o = overallFor(g)!;
+      for (const stars of [0.5, 5, null]) {
+        for (const n of [1, 4, null]) {
+          expect(tierForScore(scoreFor(o, stars, n).value)).toBe(scoreFor(o, stars, n).tier);
+        }
+      }
+    }
   });
-  expect(summaryFor(verdict, null)).toEqual({ title: verdict, note: undefined });
-  expect(summaryFor(null, null)).toBeNull();
+
+  test('a high-risk additive drops it into the lower range', () => {
+    const lowered = overallFor('A', lookupAdditives(['en:e621']))!;
+    expect(scoreFor(lowered, 4, 1)).toMatchObject({ tier: 'moderate', value: 71 });
+  });
+});
+
+describe('highlights and reason line', () => {
+  const levels = (map: Record<string, string>) =>
+    Object.entries(map).map(([key, level]) => ({ key, level }) as NutrientLevel);
+
+  test('noodles-like: concerns first, max 4', () => {
+    const l = levels({
+      salt: 'high',
+      saturatedFat: 'high',
+      energy: 'high',
+      sugars: 'low',
+      protein: 'good',
+    });
+    expect(highlightsFor(l, 4).map((h) => h.text)).toEqual([
+      'High sodium',
+      'High saturated fat',
+      'Ultra-processed',
+      'High energy',
+    ]);
+    expect(reasonFor(l, 4, null)).toBe(
+      'High in sodium, saturated fat and energy. Ultra-processed. Low in sugar, good protein.',
+    );
+  });
+
+  test('Quaker-like', () => {
+    const l = levels({ energy: 'high', saturatedFat: 'moderate', sugars: 'low', protein: 'good' });
+    expect(highlightsFor(l, 1).map((h) => h.text)).toEqual([
+      'High energy',
+      'Low sugar',
+      'Good protein',
+      'Unprocessed',
+    ]);
+  });
+
+  test('the additive rule is always in the reason line', () => {
+    const l = levels({ salt: 'high', sugars: 'low' });
+    expect(reasonFor(l, 4, overallFor('B', lookupAdditives(['en:e621'])))).toBe(
+      'High in sodium. Lowered for monosodium glutamate. Ultra-processed.',
+    );
+  });
 });

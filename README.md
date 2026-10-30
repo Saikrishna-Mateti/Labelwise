@@ -65,6 +65,7 @@ Fetches the product from Open Food Facts and prints the Indian Nutrition Rating 
 - `expo-camera`: barcode scanner (EAN-13, EAN-8, UPC-A). Chosen over react-native-vision-camera because it ships with each Expo SDK and covers these barcode types.
 - `expo-image-picker`: takes or picks the photo of a nutrition label (camera or library) for the entry form.
 - `expo-text-extractor`: on-device text recognition for that photo (Apple Vision on iOS, ML Kit on Android). Chosen because it is small, offline and has no cloud step, so photos never leave the phone.
+- `react-native-svg`: draws the score ring on the result screen (installed with `npx expo install`, so it matches SDK 58).
 - `expo-haptics`: vibration on a successful scan.
 - `expo-glass-effect`: Liquid Glass for the torch button over the camera (iOS 26+, solid fallback elsewhere and with Reduce Transparency).
 - `expo-image`: product photos from Open Food Facts, with caching.

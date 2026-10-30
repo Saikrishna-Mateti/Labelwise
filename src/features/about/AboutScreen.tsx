@@ -51,23 +51,26 @@ export function AboutScreen() {
 
       <Section title="About the scores">
         <Body>
-          Overall (Excellent, Good, Poor, Bad): Labelwise’s plain-language reading of the
-          Nutri-Score grade. A is Excellent, B is Good, C and D are Poor, E is Bad. It drops one
-          step if the product has an additive that the European Food Safety Authority (EFSA) found
-          people may eat more of than the safe daily amount. Bad stays Bad.
+          Score out of 100: Labelwise’s own way of combining the ratings below. The Nutri-Score
+          grade sets the range: A 75–100 (Great choice), B 50–74 (Fine in moderation), C and D 25–49
+          (Eat occasionally), E 0–24 (Eat rarely). It drops one range if the product has an additive
+          the European Food Safety Authority (EFSA) found people may eat more of than the safe daily
+          amount. The India rating and NOVA group then place the score inside its range.
         </Body>
         <Body>
           Additives: names, INS numbers and EFSA findings come from Open Food Facts. “No data” means
           EFSA has no such finding on record, not that the additive is safe.
         </Body>
         <Body>
-          Healthier options: for Poor and Bad products, Labelwise searches Open Food Facts for
-          products in the same category sold in India, rates each one the same way, and lists only
-          those rated Good or Excellent.
+          Better alternatives: for products scoring under 50, Labelwise searches Open Food Facts for
+          products in the same category sold in India, scores each one the same way, and lists only
+          those scoring 50 or more.
         </Body>
         <Body>
-          High / OK: compared with the ICMR-NIN Dietary Guidelines for Indians 2024 limits for
-          energy, added sugar and added fat. Saturated fat and total sugars have no such limit.
+          Low / Moderate / High per nutrient: High uses the ICMR-NIN Dietary Guidelines for Indians
+          2024 limits (energy, salt, added sugar), else the UK Food Standards Agency bands
+          (saturated fat, sugars). Low uses FSSAI’s rules for “low” claims. Protein is Good from 10%
+          of the daily allowance (FSSAI “source of protein”).
         </Body>
         <Body>Indian Nutrition Rating: {EXPLAIN.inr}</Body>
         <Body>Nutri-Score: {EXPLAIN.nutriscore}</Body>

@@ -33,18 +33,23 @@ export function Body({ children, muted }: { children: ReactNode; muted?: boolean
   return <Text style={[styles.body, { color: muted ? t.muted : t.text }]}>{children}</Text>;
 }
 
+/** Primary (one per screen), secondary (tinted) or tertiary (text only), per DESIGN.md. */
 export function Button({
   title,
   onPress,
   disabled,
   secondary,
+  tertiary,
 }: {
   title: string;
   onPress?: () => void;
   disabled?: boolean;
   secondary?: boolean;
+  tertiary?: boolean;
 }) {
   const t = useTheme();
+  const fill = disabled ? t.fill : tertiary ? 'transparent' : secondary ? t.accentTint : t.accent;
+  const color = disabled ? t.textTertiary : secondary || tertiary ? t.accent : t.onAccent;
   return (
     <Pressable
       accessibilityRole="button"
@@ -53,11 +58,11 @@ export function Button({
       onPress={onPress}
       style={({ pressed }) => [
         styles.button,
-        secondary ? { borderColor: t.primary, borderWidth: 1 } : { backgroundColor: t.primary },
-        { opacity: disabled ? 0.4 : pressed ? 0.7 : 1 },
+        tertiary && styles.tertiary,
+        { backgroundColor: fill, opacity: pressed ? 0.85 : 1 },
       ]}
     >
-      <Text style={[styles.buttonText, { color: secondary ? t.primary : t.onPrimary }]}>
+      <Text style={[styles.buttonText, { color, fontWeight: tertiary ? '400' : '600' }]}>
         {title}
       </Text>
     </Pressable>
@@ -74,11 +79,14 @@ export function Message({
   body: string;
   children?: ReactNode;
 }) {
+  const t = useTheme();
   return (
     <View style={styles.message}>
-      <Title>{title}</Title>
-      <Body>{body}</Body>
-      {children}
+      <Text accessibilityRole="header" style={[styles.messageTitle, { color: t.text }]}>
+        {title}
+      </Text>
+      <Text style={[styles.messageBody, { color: t.textSecondary }]}>{body}</Text>
+      <View style={styles.messageActions}>{children}</View>
     </View>
   );
 }
@@ -181,13 +189,23 @@ export function OffAttribution({ barcode }: { barcode?: string }) {
 }
 
 const styles = StyleSheet.create({
-  screen: { padding: 16, gap: 16 },
+  screen: { paddingHorizontal: 20, paddingVertical: 16, paddingBottom: 40, gap: 16 },
   title: { fontSize: 24, fontWeight: '700' },
   body: { fontSize: 16, lineHeight: 22 },
   small: { fontSize: 13, lineHeight: 18 },
-  button: { paddingVertical: 12, paddingHorizontal: 16, borderRadius: 10, alignItems: 'center' },
-  buttonText: { fontSize: 16, fontWeight: '600' },
-  message: { gap: 12, paddingTop: 24 },
+  button: {
+    minHeight: 50,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tertiary: { minHeight: 44 },
+  buttonText: { fontSize: 17 },
+  message: { gap: 8, paddingTop: 16 },
+  messageTitle: { fontSize: 22, lineHeight: 28, fontWeight: '700', textAlign: 'center' },
+  messageBody: { fontSize: 15, lineHeight: 20, textAlign: 'center' },
+  messageActions: { gap: 12, paddingTop: 16 },
   attribution: { gap: 4 },
   linkRow: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start' },
   underline: { textDecorationLine: 'underline' },
