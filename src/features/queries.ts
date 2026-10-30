@@ -4,7 +4,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { getStore, type UserEntry } from '../data/db';
 import { fetchProduct } from '../data/offClient';
+import type { OffProduct } from '../data/normalize';
 import { mergeProduct, resolveProduct, type Resolution } from '../data/resolver';
+import { findAlternatives } from './alternatives/alternatives';
+import type { OverallBand } from './product/productView';
+
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 export function useProduct(barcode: string) {
   const qc = useQueryClient();
@@ -124,4 +129,14 @@ export function usePrimaryMethod() {
     onMutate: (m) => qc.setQueryData(['setting', PRIMARY_KEY], m),
   });
   return [query.data ?? 'inr', mutation.mutate] as const;
+}
+
+/** Healthier options for a Poor or Bad product; cached for a day to stay well under OFF's limits. */
+export function useAlternatives(barcode: string, band: OverallBand, off: OffProduct) {
+  return useQuery({
+    queryKey: ['alternatives', barcode, band],
+    queryFn: () => findAlternatives({ barcode, band, off }),
+    staleTime: DAY_MS,
+    gcTime: DAY_MS,
+  });
 }

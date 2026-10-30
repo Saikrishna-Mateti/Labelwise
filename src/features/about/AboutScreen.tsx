@@ -61,6 +61,11 @@ export function AboutScreen() {
           EFSA has no such finding on record, not that the additive is safe.
         </Body>
         <Body>
+          Healthier options: for Poor and Bad products, Labelwise searches Open Food Facts for
+          products in the same category sold in India, rates each one the same way, and lists only
+          those rated Good or Excellent.
+        </Body>
+        <Body>
           High / OK: compared with the ICMR-NIN Dietary Guidelines for Indians 2024 limits for
           energy, added sugar and added fat. Saturated fat and total sugars have no such limit.
         </Body>

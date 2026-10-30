@@ -7,7 +7,7 @@ import type { ReactElement } from 'react';
 
 import { createStore, getStore, type Store } from '../../data/db';
 import type { OffProduct } from '../../data/normalize';
-import { fetchProduct } from '../../data/offClient';
+import { fetchProduct, searchCategory } from '../../data/offClient';
 import fixtures from '../../scoring/__tests__/fixtures/off-products.json';
 import { memoryDb } from '../../test-utils/memoryDb';
 import { EntryScreen } from '../entry/EntryScreen';
@@ -16,7 +16,7 @@ import { ProductScreen } from '../product/ProductScreen';
 import { ScanScreen } from '../scan/ScanScreen';
 
 jest.mock('../../data/db', () => ({ ...jest.requireActual('../../data/db'), getStore: jest.fn() }));
-jest.mock('../../data/offClient', () => ({ fetchProduct: jest.fn() }));
+jest.mock('../../data/offClient', () => ({ fetchProduct: jest.fn(), searchCategory: jest.fn() }));
 
 // Reanimated needs native code Jest doesn't have; the swipe itself isn't under test here.
 jest.mock('react-native-gesture-handler/ReanimatedSwipeable', () => ({
@@ -145,6 +145,88 @@ describe('ProductScreen', () => {
     await renderWithQuery(<ProductScreen barcode="8901719101038" />);
     await screen.findByLabelText(/^Overall/);
     expect(screen.queryByText(/^Per serving/)).not.toBeOnTheScreen();
+  });
+
+  test('healthier options load when opened and open the chosen product', async () => {
+    const better: OffProduct = {
+      code: '8900000000002',
+      product_name: 'Plain oat biscuits',
+      brands: 'Test',
+      nutriscore_grade: 'b',
+      nutriments: {
+        'energy-kcal_100g': 380,
+        fat_100g: 7,
+        carbohydrates_100g: 66,
+        proteins_100g: 13,
+        sugars_100g: 1,
+        'saturated-fat_100g': 1.2,
+        sodium_100g: 0.006,
+        fiber_100g: 10,
+      },
+    };
+    jest.mocked(fetchProduct).mockImplementation(async (code) =>
+      code === better.code
+        ? { status: 'found', product: better }
+        : {
+            status: 'found',
+            product: { ...off['8901719101038'], compared_to_category: 'en:biscuits' },
+          },
+    );
+    jest.mocked(searchCategory).mockResolvedValue({ status: 'ok', codes: [better.code!] });
+    await renderWithQuery(<ProductScreen barcode="8901719101038" />);
+
+    await fireEvent.press(await screen.findByText('Healthier options'));
+    expect(jest.mocked(searchCategory).mock.calls[0].slice(0, 2)).toEqual([
+      'en:biscuits',
+      ['a', 'b'],
+    ]);
+    const row = await screen.findByLabelText('Plain oat biscuits, Test, overall Good');
+    expect(
+      screen.getByText('Biscuits sold in India that rate Good or Excellent.'),
+    ).toBeOnTheScreen();
+    await fireEvent.press(row);
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: '/product/[barcode]',
+      params: { barcode: '8900000000002' },
+    });
+  });
+
+  test('with nothing good among biscuits, it says the options are other sweet snacks', async () => {
+    const bar: OffProduct = {
+      code: '8900000000003',
+      product_name: 'Nut bar',
+      nutriscore_grade: 'b',
+      nutriments: {
+        'energy-kcal_100g': 380,
+        fat_100g: 7,
+        carbohydrates_100g: 66,
+        proteins_100g: 13,
+        sugars_100g: 1,
+        'saturated-fat_100g': 1.2,
+        sodium_100g: 0.006,
+        fiber_100g: 10,
+      },
+    };
+    jest.mocked(fetchProduct).mockImplementation(async (code) =>
+      code === bar.code
+        ? { status: 'found', product: bar }
+        : {
+            status: 'found',
+            product: { ...off['8901719101038'], compared_to_category: 'en:biscuits' },
+          },
+    );
+    jest.mocked(searchCategory).mockImplementation(async (category) => ({
+      status: 'ok',
+      codes: category === 'en:sweet-snacks' ? [bar.code!] : [],
+    }));
+    await renderWithQuery(<ProductScreen barcode="8901719101038" />);
+    await fireEvent.press(await screen.findByText('Healthier options'));
+    expect(
+      await screen.findByText(
+        'Nothing in biscuits rates Good or Excellent, so these are other sweet snacks sold in India that do.',
+      ),
+    ).toBeOnTheScreen();
+    expect(screen.getByLabelText('Nut bar, overall Good')).toBeOnTheScreen();
   });
 
   test('additives section lists each additive with its EFSA finding', async () => {
