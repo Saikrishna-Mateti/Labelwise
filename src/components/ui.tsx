@@ -2,7 +2,7 @@ import { Image } from 'expo-image';
 import type { ReactNode } from 'react';
 import { Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { useTheme } from '../theme';
+import { RADIUS, TYPE, useTheme } from '../theme';
 
 export function Screen({ children }: { children: ReactNode }) {
   const t = useTheme();
@@ -188,7 +188,44 @@ export function OffAttribution({ barcode }: { barcode?: string }) {
   );
 }
 
+/** iOS-style segmented control. */
+export function Segmented<T extends string>({
+  options,
+  value,
+  onChange,
+}: {
+  options: [T, string][];
+  value: T;
+  onChange: (v: T) => void;
+}) {
+  const t = useTheme();
+  return (
+    <View accessibilityRole="tablist" style={[styles.segment, { backgroundColor: t.fill }]}>
+      {options.map(([v, label]) => {
+        const selected = v === value;
+        return (
+          <Pressable
+            key={v}
+            accessibilityRole="tab"
+            accessibilityState={{ selected }}
+            onPress={() => onChange(v)}
+            style={[styles.segmentItem, selected && { backgroundColor: t.surface }]}
+          >
+            <Text
+              style={[TYPE.subheadline, { color: t.text, fontWeight: selected ? '600' : '400' }]}
+            >
+              {label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  segment: { flexDirection: 'row', borderRadius: RADIUS.thumb, padding: 2 },
+  segmentItem: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 8 },
   screen: { paddingHorizontal: 20, paddingVertical: 16, paddingBottom: 40, gap: 16 },
   title: { fontSize: 24, fontWeight: '700' },
   body: { fontSize: 16, lineHeight: 22 },

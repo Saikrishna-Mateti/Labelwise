@@ -86,10 +86,11 @@ export function useClearSaved() {
   });
 }
 
-export function useRemoveSaved() {
+export function useSetSaved() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (barcode: string) => (await getStore()).setSaved(barcode, false, Date.now()),
+    mutationFn: async ({ barcode, saved }: { barcode: string; saved: boolean }) =>
+      (await getStore()).setSaved(barcode, saved, Date.now()),
     onSettled: () => qc.invalidateQueries({ queryKey: ['saved'] }),
   });
 }

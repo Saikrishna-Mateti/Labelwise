@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 
 import { ScoreBadge } from '../../components/score';
-import { Button, Icon } from '../../components/ui';
+import { Button, Icon, Segmented } from '../../components/ui';
 import { normalizeBarcode } from '../../data/barcode';
 import { searchByName, type NameSearchResult } from '../../data/offClient';
 import { RADIUS, TYPE, useTheme } from '../../theme';
@@ -265,40 +265,6 @@ function NameSearch({ onOpen }: { onOpen: (code: string) => void }) {
   );
 }
 
-export function Segmented<T extends string>({
-  options,
-  value,
-  onChange,
-}: {
-  options: [T, string][];
-  value: T;
-  onChange: (v: T) => void;
-}) {
-  const t = useTheme();
-  return (
-    <View accessibilityRole="tablist" style={[styles.segment, { backgroundColor: t.fill }]}>
-      {options.map(([v, label]) => {
-        const selected = v === value;
-        return (
-          <Pressable
-            key={v}
-            accessibilityRole="tab"
-            accessibilityState={{ selected }}
-            onPress={() => onChange(v)}
-            style={[styles.segmentItem, selected && { backgroundColor: t.surface }]}
-          >
-            <Text
-              style={[TYPE.subheadline, { color: t.text, fontWeight: selected ? '600' : '400' }]}
-            >
-              {label}
-            </Text>
-          </Pressable>
-        );
-      })}
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   screen: { paddingHorizontal: 20, paddingTop: 24, paddingBottom: 40, gap: 16 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 12 },
@@ -314,6 +280,4 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  segment: { flexDirection: 'row', borderRadius: RADIUS.thumb, padding: 2 },
-  segmentItem: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 8 },
 });
