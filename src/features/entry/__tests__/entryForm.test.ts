@@ -7,6 +7,7 @@ const draft = (values: Draft['values'], extra: Partial<Draft> = {}): Draft => ({
   productType: 'solid',
   ingredientsText: '',
   serving: '',
+  name: '',
   ...extra,
 });
 

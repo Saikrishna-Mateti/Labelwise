@@ -12,3 +12,10 @@ export function normalizeBarcode(input: string): string | null {
   if (digits.length === 14 && digits.startsWith('0')) return digits.slice(1);
   return null;
 }
+
+/**
+ * Products read from a label without a barcode get a local id. It never matches a real barcode
+ * (letters) and is never sent to Open Food Facts.
+ */
+export const isLocalId = (code: string) => /^label-[a-z0-9]+$/.test(code);
+export const newLocalId = (now = Date.now()) => `label-${now.toString(36)}`;

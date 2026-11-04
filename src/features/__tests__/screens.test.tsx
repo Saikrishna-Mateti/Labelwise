@@ -7,16 +7,22 @@ import type { ReactElement } from 'react';
 
 import { createStore, getStore, type Store } from '../../data/db';
 import type { OffProduct } from '../../data/normalize';
-import { fetchProduct, searchCategory } from '../../data/offClient';
+import { fetchProduct, searchByName, searchCategory } from '../../data/offClient';
 import fixtures from '../../scoring/__tests__/fixtures/off-products.json';
 import { memoryDb } from '../../test-utils/memoryDb';
 import { EntryScreen } from '../entry/EntryScreen';
 import { HistoryScreen } from '../history/HistoryScreen';
 import { ProductScreen } from '../product/ProductScreen';
+import { putPendingLabel } from '../entry/pendingLabel';
+import { FindScreen } from '../scan/FindScreen';
 import { ScanScreen } from '../scan/ScanScreen';
 
 jest.mock('../../data/db', () => ({ ...jest.requireActual('../../data/db'), getStore: jest.fn() }));
-jest.mock('../../data/offClient', () => ({ fetchProduct: jest.fn(), searchCategory: jest.fn() }));
+jest.mock('../../data/offClient', () => ({
+  fetchProduct: jest.fn(),
+  searchCategory: jest.fn(),
+  searchByName: jest.fn(),
+}));
 
 // Reanimated needs native code Jest doesn't have; the swipe itself isn't under test here.
 jest.mock('react-native-gesture-handler/ReanimatedSwipeable', () => ({
@@ -26,10 +32,15 @@ jest.mock('react-native-gesture-handler/ReanimatedSwipeable', () => ({
 
 const mockPush = jest.fn();
 const mockBack = jest.fn();
+const mockReplace = jest.fn();
 jest.mock('expo-router', () => ({
   useFocusEffect: () => {},
-  useRouter: () => ({ push: mockPush, back: mockBack }),
+  useRouter: () => ({ push: mockPush, back: mockBack, replace: mockReplace }),
 }));
+jest.mock(
+  'react-native-safe-area-context',
+  () => jest.requireActual('react-native-safe-area-context/jest/mock').default,
+);
 jest.mock('expo-camera', () => ({
   CameraView: () => null,
   useCameraPermissions: () => [{ granted: false, canAskAgain: true }, jest.fn()],
@@ -49,6 +60,7 @@ beforeEach(async () => {
   await store.init();
   jest.mocked(getStore).mockResolvedValue(store);
   mockPush.mockClear();
+  mockReplace.mockClear();
   // Poor and Bad products load alternatives on their own; none unless a test says so.
   jest.mocked(searchCategory).mockResolvedValue({ status: 'ok', codes: [] });
 });
@@ -254,6 +266,28 @@ describe('ProductScreen', () => {
 });
 
 describe('EntryScreen', () => {
+  test('label mode: both photos fill the form, a name can be added, Save opens the result', async () => {
+    putPendingLabel('label-abc', {
+      nutrition: ['Per 100 g', 'Energy 450 kcal', 'Protein 7.1 g', 'Sodium 320 mg'],
+      ingredients: ['INGREDIENTS: Rice flour, palm oil, salt.'],
+    });
+    await renderWithQuery(<EntryScreen barcode="label-abc" fromLabel />);
+    expect(await screen.findByText('Check the values')).toBeOnTheScreen();
+    expect(screen.getByDisplayValue('450')).toBeOnTheScreen();
+    expect(screen.getByDisplayValue('Rice flour, palm oil, salt.')).toBeOnTheScreen();
+    await fireEvent.changeText(screen.getByLabelText('Product name (optional)'), 'Rice chips');
+    await fireEvent.press(screen.getByText('Save'));
+    await screen.findByText('Save');
+    expect(mockReplace).toHaveBeenCalledWith({
+      pathname: '/product/[barcode]',
+      params: { barcode: 'label-abc' },
+    });
+    expect(await store.getUserEntry('label-abc')).toMatchObject({
+      name: 'Rice chips',
+      nutrition: { energyKcal: 450, proteinG: 7.1, sodiumMg: 320 },
+    });
+  });
+
   test('scanning a label fills the form for checking and saves nothing yet', async () => {
     jest.mocked(fetchProduct).mockResolvedValue({ status: 'not_found' });
     jest.mocked(ImagePicker.launchCameraAsync).mockResolvedValue({
@@ -327,24 +361,57 @@ describe('EntryScreen', () => {
 });
 
 describe('ScanScreen', () => {
-  test('typed barcode: rejects bad input, then opens the product and records the scan', async () => {
+  test('without camera access it asks, and the find pill opens the find sheet', async () => {
     await renderWithQuery(<ScanScreen />);
     expect(screen.getByText('Allow camera')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByText('Type a barcode or search'));
+    expect(mockPush).toHaveBeenCalledWith('/find');
+  });
+});
 
-    const input = screen.getByPlaceholderText('e.g. 8901719101038');
+describe('FindScreen', () => {
+  test('typed barcode: counts digits, rejects bad input, then opens the product and records it', async () => {
+    await renderWithQuery(<FindScreen />);
+    const input = screen.getByLabelText('Barcode number');
     await fireEvent.changeText(input, '12345');
+    expect(screen.getByText('5 of 13 digits · printed under the bars')).toBeOnTheScreen();
     await fireEvent.press(screen.getByText('Look up'));
     expect(screen.getByText(/Enter the 8, 12 or 13 digits/)).toBeOnTheScreen();
-    expect(mockPush).not.toHaveBeenCalled();
+    expect(mockReplace).not.toHaveBeenCalled();
 
     await fireEvent.changeText(input, '012345678905');
     await fireEvent.press(screen.getByText('Look up'));
-    expect(mockPush).toHaveBeenCalledWith({
+    expect(mockReplace).toHaveBeenCalledWith({
       pathname: '/product/[barcode]',
       params: { barcode: '0012345678905' },
     });
     await screen.findByText('Look up'); // let the history write settle
     expect((await store.listScans()).map((s) => s.barcode)).toEqual(['0012345678905']);
+  });
+
+  test('recent scans show with their score', async () => {
+    await store.putCached('8901719101038', off['8901719101038'], 1);
+    await store.addScan('8901719101038', 1);
+    await renderWithQuery(<FindScreen />);
+    expect(await screen.findByText('Parle - G')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Score 4 of 100, eat rarely')).toBeOnTheScreen();
+  });
+
+  test('name search lists matches and opens the chosen one', async () => {
+    jest.mocked(searchByName).mockResolvedValue({
+      status: 'ok',
+      hits: [{ code: '8901491103794', product_name: 'Quaker Oats', brands: 'Quaker' }],
+    });
+    await renderWithQuery(<FindScreen />);
+    await fireEvent.press(screen.getByText('Name'));
+    await fireEvent.changeText(screen.getByLabelText('Product name or brand'), 'quaker');
+    await fireEvent.press(screen.getByText('Search'));
+    await fireEvent.press(await screen.findByLabelText('Quaker Oats, Quaker'));
+    expect(searchByName).toHaveBeenCalledWith('quaker');
+    expect(mockReplace).toHaveBeenCalledWith({
+      pathname: '/product/[barcode]',
+      params: { barcode: '8901491103794' },
+    });
   });
 });
 

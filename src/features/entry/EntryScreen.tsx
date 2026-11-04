@@ -7,16 +7,27 @@ import type { ResolvedProduct } from '../../data/resolver';
 import { useTheme } from '../../theme';
 import { useProduct, useSaveEntry } from '../queries';
 import { draftFrom, FIELDS, offKeys, parseEntry, type Draft, type Errors } from './entryForm';
-import { applyReading, describeReading, parseLabel } from './parseLabel';
+import { applyReading, describeReading, ingredientsFromLines, parseLabel } from './parseLabel';
+import { clearPendingLabel, getPendingLabel } from './pendingLabel';
 import { ocrSupported, readLabelPhoto, type PhotoSource } from './recognise';
 
-export function EntryScreen({ barcode, scan }: { barcode: string; scan?: PhotoSource }) {
+export function EntryScreen({
+  barcode,
+  scan,
+  fromLabel,
+}: {
+  barcode: string;
+  scan?: PhotoSource;
+  /** Came from Label mode on the Scan screen: photos already read; open the result after Save. */
+  fromLabel?: boolean;
+}) {
   const { data, isPending } = useProduct(barcode);
   if (isPending) return <Skeleton />;
   return (
     <EntryForm
       barcode={barcode}
       scan={scan}
+      fromLabel={fromLabel}
       product={data?.status === 'ok' ? data.product : undefined}
     />
   );
@@ -26,21 +37,35 @@ function EntryForm({
   barcode,
   product,
   scan,
+  fromLabel,
 }: {
   barcode: string;
   product?: ResolvedProduct;
   scan?: PhotoSource;
+  fromLabel?: boolean;
 }) {
   const t = useTheme();
   const router = useRouter();
   const save = useSaveEntry(barcode);
   const locked = offKeys(product);
   const servingKnown = product?.serving?.source === 'off';
-  const [draft, setDraft] = useState<Draft>(() => draftFrom(product));
+  // Label mode already read both photos; start from what they said.
+  const [initial] = useState(() => {
+    const label = getPendingLabel(barcode);
+    const draft = draftFrom(product);
+    if (!label) return { draft, reading: null };
+    const result = parseLabel(label.nutrition);
+    const { draft: next, applied } = applyReading(draft, result, locked, servingKnown);
+    return {
+      draft: { ...next, ingredientsText: ingredientsFromLines(label.ingredients) },
+      reading: { text: describeReading(result, applied), raw: label.nutrition },
+    };
+  });
+  const [draft, setDraft] = useState<Draft>(initial.draft);
   const [errors, setErrors] = useState<Errors>({});
   const per = draft.productType === 'liquid' ? '100 ml' : '100 g';
   const [reading, setReading] = useState<{ text: string; busy?: boolean; raw?: string[] } | null>(
-    null,
+    initial.reading,
   );
 
   const scanLabel = async (source: PhotoSource) => {
@@ -77,12 +102,18 @@ function EntryForm({
       setErrors(result.errors);
       return;
     }
-    save.mutate(result.entry, { onSuccess: () => router.back() });
+    save.mutate(result.entry, {
+      onSuccess: () => {
+        clearPendingLabel(barcode);
+        if (fromLabel) router.replace({ pathname: '/product/[barcode]', params: { barcode } });
+        else router.back();
+      },
+    });
   };
 
   return (
     <Screen>
-      <Title>Add nutrition info</Title>
+      <Title>{fromLabel ? 'Check the values' : 'Add nutrition info'}</Title>
       <Body muted>
         Copy the “per {per}” column from the pack, not per serving. Leave anything you can’t find
         empty. Your values stay on this device.
@@ -114,6 +145,19 @@ function EntryForm({
               {`OCR (dev only):\n${reading.raw.join('\n')}`}
             </Text>
           )}
+        </Group>
+      )}
+
+      {!product?.off && (
+        <Group label="Product name (optional)" id="name">
+          <TextInput
+            accessibilityLabelledBy="name"
+            value={draft.name}
+            onChangeText={(name) => setDraft({ ...draft, name })}
+            placeholder="e.g. Masala chips"
+            placeholderTextColor={t.muted}
+            style={[styles.input, { color: t.text, backgroundColor: t.card, borderColor: t.card }]}
+          />
         </Group>
       )}
 

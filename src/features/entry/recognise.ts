@@ -17,3 +17,6 @@ export async function readLabelPhoto(source: PhotoSource): Promise<string[] | nu
   if (result.canceled) return null;
   return extractTextFromImage(result.assets[0].uri);
 }
+
+/** Lines of text in a photo already taken (Label mode on the Scan screen). */
+export const readImage = (uri: string): Promise<string[]> => extractTextFromImage(uri);

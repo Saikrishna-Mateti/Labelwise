@@ -218,3 +218,17 @@ export function describeReading(reading: LabelReading, applied: number): string 
     .filter(Boolean)
     .join(' ');
 }
+
+/**
+ * The ingredient list from a photo: the text after "Ingredients", joined into one line. Without
+ * that word, all the text. Allergen and storage lines after it are left for the user to trim.
+ */
+export function ingredientsFromLines(lines: string[]): string {
+  const text = lines
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .join(' ');
+  const at = text.search(/ingredients?\s*[:\-]?/i);
+  const list = at >= 0 ? text.slice(at).replace(/^ingredients?\s*[:\-]?\s*/i, '') : text;
+  return list.replace(/\s+/g, ' ').trim();
+}

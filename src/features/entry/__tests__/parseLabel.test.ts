@@ -1,5 +1,5 @@
 import { draftFrom } from '../entryForm';
-import { applyReading, describeReading, parseLabel } from '../parseLabel';
+import { applyReading, describeReading, ingredientsFromLines, parseLabel } from '../parseLabel';
 
 // Synthetic OCR output: shapes Indian nutrition tables commonly produce, not real photos.
 describe('parseLabel', () => {
@@ -217,5 +217,20 @@ describe('per-serving labels', () => {
       addedSugarsG: '7',
       proteinG: '2',
     });
+  });
+});
+
+describe('ingredientsFromLines', () => {
+  it('keeps what follows "Ingredients" as one line', () => {
+    expect(
+      ingredientsFromLines([
+        'MASALA NOODLES',
+        'INGREDIENTS: Wheat flour (maida),',
+        'palm oil, salt.',
+      ]),
+    ).toBe('Wheat flour (maida), palm oil, salt.');
+  });
+  it('uses all the text when the word is missing', () => {
+    expect(ingredientsFromLines(['Wheat flour,', ' sugar'])).toBe('Wheat flour, sugar');
   });
 });

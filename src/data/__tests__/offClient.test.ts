@@ -1,5 +1,5 @@
 import { normalizeBarcode } from '../barcode';
-import { fetchProduct, USER_AGENT } from '../offClient';
+import { fetchProduct, searchByName, USER_AGENT } from '../offClient';
 
 describe('normalizeBarcode', () => {
   test.each([
@@ -66,5 +66,27 @@ describe('fetchProduct', () => {
       status: 'error',
       error: 'timeout',
     });
+  });
+});
+
+describe('searchByName', () => {
+  test('searches products sold in India with plain words and the custom User-Agent', async () => {
+    const fetchMock = jest.fn(
+      async () =>
+        new Response(
+          JSON.stringify({ hits: [{ code: '8901491103794', product_name: 'Oats' }, {}] }),
+        ),
+    );
+    const r = await searchByName('quaker "oats":', 20, fetchMock as unknown as typeof fetch);
+    expect(r).toEqual({ status: 'ok', hits: [{ code: '8901491103794', product_name: 'Oats' }] });
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(new URL(url).searchParams.get('q')).toBe('(quaker  oats) AND countries_tags:"en:india"');
+    expect((init.headers as Record<string, string>)['User-Agent']).toBe(USER_AGENT);
+  });
+
+  test('nothing to search for makes no request', async () => {
+    const fetchMock = jest.fn();
+    expect(await searchByName(' :" ', 20, fetchMock)).toEqual({ status: 'ok', hits: [] });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

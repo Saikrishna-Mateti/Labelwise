@@ -2,7 +2,8 @@
 
 import { notFoodKind, type NotFoodKind } from '../../data/normalize';
 import type { Resolution, ResolvedProduct } from '../../data/resolver';
-import { toScoringInput } from '../../data/resolver';
+import { mergeProduct, toScoringInput } from '../../data/resolver';
+import type { Scan } from '../../data/db';
 import type { OffError } from '../../data/offClient';
 import { lookupAdditives, type Additive } from '../../scoring/additives';
 import { inr, LABEL_FOR, RISK } from '../../scoring/inr';
@@ -255,3 +256,18 @@ export const EXPLAIN = {
     'A European grade from A (best) to E based on nutrients per 100 g, as calculated by Open Food Facts.',
   nova: 'Groups foods from 1 to 4 by how processed they are. Group 4 means ultra-processed.',
 };
+
+/** The view of a history row from what is stored (no network); null when nothing is stored. */
+export function viewOfScan(scan: Scan): ProductView | null {
+  if (!scan.off && !scan.user) return null;
+  return productView({
+    status: 'ok',
+    product: mergeProduct(scan.barcode, scan.off ?? undefined, scan.user ?? undefined),
+  });
+}
+
+/** Display name: OFF's, else the user's, else a stand-in. */
+export const nameOfScan = (scan: Scan) =>
+  scan.off?.product_name ||
+  scan.user?.name ||
+  (scan.barcode.startsWith('label-') ? 'Label scan' : scan.barcode);

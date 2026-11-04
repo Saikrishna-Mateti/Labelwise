@@ -67,7 +67,6 @@ Fetches the product from Open Food Facts and prints the Indian Nutrition Rating 
 - `expo-text-extractor`: on-device text recognition for that photo (Apple Vision on iOS, ML Kit on Android). Chosen because it is small, offline and has no cloud step, so photos never leave the phone.
 - `react-native-svg`: draws the score ring on the result screen (installed with `npx expo install`, so it matches SDK 58).
 - `expo-haptics`: vibration on a successful scan.
-- `expo-glass-effect`: Liquid Glass for the torch button over the camera (iOS 26+, solid fallback elsewhere and with Reduce Transparency).
 - `expo-image`: product photos from Open Food Facts, with caching.
 - `@tanstack/react-query`: loading and error states for product lookups and history.
 - `react-native-gesture-handler`, `react-native-reanimated`, `react-native-worklets`: swipe to delete in history (already required by Expo Router, now listed directly).

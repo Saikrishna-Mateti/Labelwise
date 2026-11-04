@@ -15,7 +15,7 @@ import type { Score } from './productView';
 export function Hero({ product, score }: { product: ResolvedProduct; score?: Score | null }) {
   const t = useTheme();
   const off = product.off;
-  const name = off?.product_name || 'Unnamed product';
+  const name = off?.product_name || product.name || 'Unnamed product';
   const mark = vegMark(off?.labels_tags);
   return (
     <View style={{ gap: 16 }}>
