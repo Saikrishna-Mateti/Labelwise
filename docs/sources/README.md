@@ -91,3 +91,18 @@ Files: `fsa-fop-guidance-2016.pdf` (Table 2 p. 19, Table 3 p. 20), `fssai-advert
 ### Additive concern words (Ingredients section)
 
 EFSA overexposure finding from OFF: high → "Higher concern", moderate → "Some concern", no → "Low concern", none → "No data".
+
+## Profile flags (redesign part 4, 2026-11-04)
+
+Flags only: the profile never changes a score (user decision, 2026-10-30). Every check reads Open Food Facts tags; Labelwise keeps no ingredient or allergen lists of its own. Tags checked against the OFF taxonomy API and real products (Maggi 8901058000290, Lay's 8901491101837) on 2026-11-04.
+
+| Profile choice | Flag | OFF data |
+|---|---|---|
+| Allergies | "Contains …" / "May contain …" warning above the score | `allergens_tags` / `traces_tags`: `en:peanuts`, `en:nuts`, `en:milk`, `en:gluten`, `en:soybeans`, `en:sesame-seeds`, `en:eggs`, `en:fish`, `en:crustaceans`, `en:sulphur-dioxide-and-sulphites` |
+| Vegetarian | Not vegetarian / May not be vegetarian | FSSAI veg mark in `labels_tags`, or `ingredients_analysis_tags` `en:non-vegetarian` / `en:maybe-vegetarian` |
+| Vegan | Not vegan / May not be vegan | `ingredients_analysis_tags` `en:non-vegan` / `en:maybe-vegan` |
+| Jain | Onion or garlic; Root vegetables | `ingredients_tags` (with taxonomy parents) `en:onion-family-vegetable`; `en:root-vegetable` and its children `en:taproot-vegetable`, `en:starchy-root-vegetable`, `en:tuber`. OFF files ginger under spices, so it is not flagged. |
+| Diabetes-friendly | Added sugar; Refined flour | `ingredients_tags` `en:added-sugar`, `en:refined-wheat-flour` (maida) |
+| Low sodium | High sodium (moved first) | The existing salt level: ICMR-NIN 2024 limit. The design's "600 mg" had no source, so it isn't used. |
+
+"Unknown" statuses give no flag. When the profile asks for an ingredient check and OFF has no ingredient or allergen data, the result says the profile couldn't be checked.

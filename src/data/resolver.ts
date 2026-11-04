@@ -9,6 +9,8 @@ import type { FetchProduct, OffError } from './offClient';
 
 /** Cached OFF data younger than this is used without a network call. */
 export const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+/** OFF_FIELDS last grew on this date; older copies lack the new fields, so they are refetched. */
+const FIELDS_SINCE = Date.UTC(2026, 10, 4);
 
 export type Source = 'off' | 'user';
 
@@ -62,7 +64,7 @@ export async function resolveProduct(
   let off = cached ?? undefined;
   let offError: OffError | undefined;
 
-  if (!cached || now() - cached.fetchedAt >= CACHE_TTL_MS) {
+  if (!cached || now() - cached.fetchedAt >= CACHE_TTL_MS || cached.fetchedAt < FIELDS_SINCE) {
     const result = await fetchProduct(barcode);
     if (result.status === 'found') {
       off = { product: result.product, fetchedAt: now() };

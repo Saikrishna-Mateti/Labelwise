@@ -6,7 +6,7 @@ import { useTheme } from '../../src/theme';
 export default function TabsLayout() {
   const t = useTheme();
   return (
-    <NativeTabs tintColor={t.primary}>
+    <NativeTabs tintColor={t.accent}>
       <NativeTabs.Trigger name="index">
         <NativeTabs.Trigger.Icon sf="barcode.viewfinder" md="barcode_scanner" />
         <NativeTabs.Trigger.Label>Scan</NativeTabs.Trigger.Label>
@@ -15,9 +15,9 @@ export default function TabsLayout() {
         <NativeTabs.Trigger.Icon sf="clock" md="history" />
         <NativeTabs.Trigger.Label>History</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="about">
-        <NativeTabs.Trigger.Icon sf="info.circle" md="info" />
-        <NativeTabs.Trigger.Label>About</NativeTabs.Trigger.Label>
+      <NativeTabs.Trigger name="profile">
+        <NativeTabs.Trigger.Icon sf="person" md="person" />
+        <NativeTabs.Trigger.Label>Profile</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
     </NativeTabs>
   );

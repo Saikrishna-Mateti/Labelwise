@@ -17,7 +17,7 @@ const now = () => clock;
 beforeEach(async () => {
   store = createStore(memoryDb());
   await store.init();
-  clock = 1_000_000;
+  clock = Date.UTC(2027, 0, 1);
 });
 
 const offClient = (result: OffResult) => jest.fn().mockResolvedValue(result);
@@ -95,8 +95,16 @@ test('partial OFF data: user fills the gaps, OFF values are kept', async () => {
   expect(r.product.productType).toEqual({ value: 'liquid', source: 'user' });
 });
 
+test('a copy cached before the newest OFF fields is refetched', async () => {
+  await store.putCached(PARLE_G, off[PARLE_G], Date.UTC(2026, 0, 1));
+  const fetchProduct = offClient({ status: 'found', product: off[PARLE_G] });
+  await resolveProduct(PARLE_G, { store, fetchProduct, now });
+  expect(fetchProduct).toHaveBeenCalled();
+});
+
 test('offline with a stale cache serves the cache and reports the error', async () => {
-  await store.putCached(PARLE_G, off[PARLE_G], clock);
+  const fetchedAt = clock;
+  await store.putCached(PARLE_G, off[PARLE_G], fetchedAt);
   clock += CACHE_TTL_MS * 2;
   const r = await resolveProduct(PARLE_G, {
     store,
@@ -106,7 +114,7 @@ test('offline with a stale cache serves the cache and reports the error', async 
   if (r.status !== 'ok') throw new Error(r.status);
   expect(r.offError).toBe('offline');
   expect(r.product.off?.product_name).toBe(off[PARLE_G].product_name);
-  expect(r.product.offFetchedAt).toBe(1_000_000);
+  expect(r.product.offFetchedAt).toBe(fetchedAt);
 });
 
 test('offline without cache or user data is unavailable', async () => {

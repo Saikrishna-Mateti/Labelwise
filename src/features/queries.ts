@@ -8,6 +8,7 @@ import type { OffProduct } from '../data/normalize';
 import { mergeProduct, resolveProduct, type Resolution } from '../data/resolver';
 import { findAlternatives } from './alternatives/alternatives';
 import type { OverallBand } from './product/productView';
+import { EMPTY_PROFILE, type Profile } from './profile/flags';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -115,22 +116,35 @@ export function useSaved(barcode: string) {
   return [query.data ?? false, mutation.mutate] as const;
 }
 
-export type PrimaryMethod = 'inr' | 'nutriscore';
-const PRIMARY_KEY = 'primaryMethod';
-
-export function usePrimaryMethod() {
+/** A JSON setting. Updates show at once and build on the latest value, even mid-load. */
+function useSetting<T>(key: string, fallback: T) {
   const qc = useQueryClient();
+  const queryKey = ['setting', key];
   const query = useQuery({
-    queryKey: ['setting', PRIMARY_KEY],
-    queryFn: async (): Promise<PrimaryMethod> =>
-      (await (await getStore()).getSetting(PRIMARY_KEY)) === 'nutriscore' ? 'nutriscore' : 'inr',
+    queryKey,
+    queryFn: async (): Promise<T> => {
+      const raw = await (await getStore()).getSetting(key);
+      return raw ? { ...fallback, ...JSON.parse(raw) } : fallback;
+    },
   });
   const mutation = useMutation({
-    mutationFn: async (m: PrimaryMethod) => (await getStore()).setSetting(PRIMARY_KEY, m),
-    onMutate: (m) => qc.setQueryData(['setting', PRIMARY_KEY], m),
+    mutationFn: async (value: T) => (await getStore()).setSetting(key, JSON.stringify(value)),
   });
-  return [query.data ?? 'inr', mutation.mutate] as const;
+  const update = (next: (prev: T) => T) => {
+    const value = next(qc.getQueryData<T>(queryKey) ?? fallback);
+    // A first load still running would put back the old value.
+    void qc.cancelQueries({ queryKey });
+    qc.setQueryData(queryKey, value);
+    mutation.mutate(value);
+  };
+  return [query.data ?? fallback, update] as const;
 }
+
+export const useProfile = () => useSetting<Profile>('profile', EMPTY_PROFILE);
+
+export type Appearance = 'system' | 'light' | 'dark';
+export const useAppearance = () =>
+  useSetting<{ mode: Appearance }>('appearance', { mode: 'system' });
 
 /** Healthier options for a Poor or Bad product; cached for a day to stay well under OFF's limits. */
 export function useAlternatives(barcode: string, band: OverallBand, off: OffProduct) {

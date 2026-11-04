@@ -13,6 +13,7 @@ import { memoryDb } from '../../test-utils/memoryDb';
 import { EntryScreen } from '../entry/EntryScreen';
 import { HistoryScreen } from '../history/HistoryScreen';
 import { ProductScreen } from '../product/ProductScreen';
+import { ProfileScreen } from '../profile/ProfileScreen';
 import { putPendingLabel } from '../entry/pendingLabel';
 import { FindScreen } from '../scan/FindScreen';
 import { ScanScreen } from '../scan/ScanScreen';
@@ -493,6 +494,47 @@ describe('HistoryScreen', () => {
     await fireEvent.press(await screen.findByLabelText('Remove all saved'));
     confirm();
     expect(await screen.findByText('Nothing saved yet')).toBeOnTheScreen();
+    alert.mockRestore();
+  });
+});
+
+describe('ProfileScreen', () => {
+  test('choices are kept on this device', async () => {
+    await renderWithQuery(<ProfileScreen />);
+    await fireEvent(await screen.findByLabelText('Vegan'), 'valueChange', true);
+    await fireEvent.press(screen.getByRole('checkbox', { name: 'Milk' }));
+    expect(await screen.findByRole('checkbox', { name: 'Milk', checked: true })).toBeOnTheScreen();
+    expect(JSON.parse((await store.getSetting('profile'))!)).toMatchObject({
+      vegan: true,
+      allergies: ['en:milk'],
+    });
+  });
+
+  test('the result warns about allergens and flags the diet, but the score stays', async () => {
+    await store.setSetting('profile', JSON.stringify({ vegan: true, allergies: ['en:milk'] }));
+    jest.mocked(fetchProduct).mockResolvedValue({
+      status: 'found',
+      product: {
+        ...off['8901719101038'],
+        allergens_tags: ['en:gluten', 'en:milk'],
+        ingredients_analysis_tags: ['en:non-vegan'],
+        ingredients_tags: ['en:wheat-flour', 'en:milk'],
+      },
+    });
+    await renderWithQuery(<ProductScreen barcode="8901719101038" />);
+    expect(await screen.findByText('Contains milk')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Not vegan')).toBeOnTheScreen();
+    expect(screen.getByLabelText(/^Score 4 of 100, eat rarely\./)).toBeOnTheScreen();
+  });
+
+  test('appearance offers System, Light and Dark', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    await renderWithQuery(<ProfileScreen />);
+    await fireEvent.press(await screen.findByLabelText('Appearance, System'));
+    const buttons = alert.mock.calls[0][2] as AlertButton[];
+    expect(buttons.map((b) => b.text)).toEqual(['System', 'Light', 'Dark', 'Cancel']);
+    buttons[2].onPress!();
+    expect(await screen.findByLabelText('Appearance, Dark')).toBeOnTheScreen();
     alert.mockRestore();
   });
 });
