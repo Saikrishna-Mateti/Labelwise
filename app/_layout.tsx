@@ -25,6 +25,15 @@ export default function RootLayout() {
               sheetCornerRadius: 24,
             }}
           />
+          <Stack.Screen
+            name="find"
+            options={{
+              presentation: 'formSheet',
+              sheetAllowedDetents: [0.65, 1],
+              sheetGrabberVisible: true,
+              sheetCornerRadius: 24,
+            }}
+          />
           <Stack.Screen name="entry/[barcode]" options={{ presentation: 'modal' }} />
         </Stack>
         <StatusBar style="auto" />

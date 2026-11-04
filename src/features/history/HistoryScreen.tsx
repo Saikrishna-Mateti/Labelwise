@@ -6,9 +6,8 @@ import Swipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 
 import { Icon, Message, Small } from '../../components/ui';
 import type { Scan } from '../../data/db';
-import { mergeProduct } from '../../data/resolver';
 import { useTheme } from '../../theme';
-import { productView } from '../product/productView';
+import { nameOfScan, viewOfScan } from '../product/productView';
 import { ScoreBadge } from '../../components/score';
 import {
   useClearSaved,
@@ -152,13 +151,7 @@ function Row({
   const t = useTheme();
   const router = useRouter();
 
-  const view =
-    scan.off || scan.user
-      ? productView({
-          status: 'ok',
-          product: mergeProduct(scan.barcode, scan.off ?? undefined, scan.user ?? undefined),
-        })
-      : null;
+  const view = viewOfScan(scan);
   const status =
     view?.kind === 'not_enough_data'
       ? 'Not enough data'
@@ -206,7 +199,7 @@ function Row({
         </View>
         <View style={styles.text}>
           <Text style={[styles.name, { color: t.text }]} numberOfLines={2}>
-            {scan.off?.product_name || scan.barcode}
+            {nameOfScan(scan)}
           </Text>
           {scan.off?.brands && (
             <Text style={[styles.brand, { color: t.muted }]} numberOfLines={1}>

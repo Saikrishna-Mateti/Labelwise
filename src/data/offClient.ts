@@ -98,3 +98,34 @@ export async function searchCategory(
   if (r.status === 'not_found') return { status: 'ok', codes: [] };
   return { status: 'ok', codes: (r.body.hits ?? []).flatMap((h) => (h.code ? [h.code] : [])) };
 }
+
+export interface SearchHit {
+  code: string;
+  product_name?: string;
+  brands?: string | string[];
+  image_front_small_url?: string;
+}
+
+export type NameSearchResult =
+  { status: 'ok'; hits: SearchHit[] } | { status: 'error'; error: OffError };
+
+/** Products sold in India whose name or brand matches the words typed, best matches first. */
+export async function searchByName(
+  text: string,
+  limit = 20,
+  fetchImpl: typeof fetch = fetch,
+  timeoutMs = TIMEOUT_MS,
+): Promise<NameSearchResult> {
+  // Plain words only: the search service reads quotes, colons and brackets as query syntax.
+  const words = text.replace(/[^\p{L}\p{N}\s'-]/gu, ' ').trim();
+  if (!words) return { status: 'ok', hits: [] };
+  const params = new URLSearchParams({
+    q: `(${words}) AND countries_tags:"en:india"`,
+    fields: 'code,product_name,brands,image_front_small_url',
+    page_size: String(limit),
+  });
+  const r = await getJson<{ hits?: SearchHit[] }>(`${SEARCH_URL}?${params}`, fetchImpl, timeoutMs);
+  if (r.status === 'error') return r;
+  if (r.status === 'not_found') return { status: 'ok', hits: [] };
+  return { status: 'ok', hits: (r.body.hits ?? []).filter((h) => !!h.code) };
+}

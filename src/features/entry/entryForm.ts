@@ -43,6 +43,8 @@ export interface Draft {
   ingredientsText: string;
   /** Serving size in g (food) or ml (drink), as typed. Optional. */
   serving: string;
+  /** Only asked when Open Food Facts doesn't have the product. */
+  name: string;
 }
 
 export type Errors = Partial<Record<NutrientKey | 'serving', string>>;
@@ -72,6 +74,7 @@ export function draftFrom(product?: ResolvedProduct): Draft {
     sodiumUnit: 'sodium_mg',
     productType: product?.productType.value ?? 'solid',
     serving: product?.serving?.source === 'user' ? fmt(product.serving.value.amount) : '',
+    name: product?.name ?? '',
     ingredientsText:
       product?.ingredientsText?.source === 'user' ? product.ingredientsText.value : '',
   };
@@ -124,6 +127,7 @@ export function parseEntry(
     if (!locked.has(key)) nutrition[key] = v;
   }
   const ingredientsText = draft.ingredientsText.trim();
+  const name = draft.name.trim();
   return {
     ok: true,
     entry: {
@@ -133,6 +137,7 @@ export function parseEntry(
         serving: { amount: serving, unit: draft.productType === 'liquid' ? 'ml' : 'g' },
       }),
       ...(ingredientsText ? { ingredientsText } : {}),
+      ...(name ? { name } : {}),
     },
   };
 }

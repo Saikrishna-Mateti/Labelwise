@@ -1,6 +1,7 @@
 import fixtures from '../../scoring/__tests__/fixtures/off-products.json';
 import { inr } from '../../scoring/inr';
 import { memoryDb } from '../../test-utils/memoryDb';
+import { isLocalId, newLocalId, normalizeBarcode } from '../barcode';
 import { createStore, type Store } from '../db';
 import type { OffProduct } from '../normalize';
 import type { OffResult } from '../offClient';
@@ -203,4 +204,26 @@ test('opening the store removes repeats saved by older versions', async () => {
     [PARLE_G, 5],
     ['8900000000001', 3],
   ]);
+});
+
+test('a label scan with no barcode resolves from the user entry only, never from OFF', async () => {
+  const store = createStore(memoryDb());
+  await store.init();
+  const fetchProduct = jest.fn();
+  const id = newLocalId(1);
+  expect(await resolveProduct(id, { store, fetchProduct })).toEqual({
+    status: 'not_found',
+    barcode: id,
+  });
+  await store.putUserEntry(id, {
+    nutrition: { energyKcal: 450 },
+    productType: 'solid',
+    name: 'Masala chips',
+    updatedAt: 1,
+  });
+  const r = await resolveProduct(id, { store, fetchProduct });
+  expect(r.status === 'ok' && r.product.name).toBe('Masala chips');
+  expect(fetchProduct).not.toHaveBeenCalled();
+  expect(isLocalId(id)).toBe(true);
+  expect(normalizeBarcode(id)).toBeNull();
 });

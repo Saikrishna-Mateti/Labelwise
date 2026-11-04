@@ -19,6 +19,8 @@ export interface UserEntry {
   nutrition: NutritionPer100;
   productType: ProductType;
   ingredientsText?: string;
+  /** Product name, typed by the user when Open Food Facts doesn't have the product. */
+  name?: string;
   /** Printed serving size, for the per-serving view. Ratings never use it. */
   serving?: Serving;
   updatedAt: number;

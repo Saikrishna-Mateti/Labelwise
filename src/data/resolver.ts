@@ -2,7 +2,7 @@
 // missing. Every value says where it came from.
 
 import type { NutrientKey, ProductType, ScoringInput } from '../scoring/types';
-import { normalizeBarcode } from './barcode';
+import { isLocalId, normalizeBarcode } from './barcode';
 import type { Store, UserEntry } from './db';
 import { scoringInputFromOff, servingFromOff, type OffProduct, type Serving } from './normalize';
 import type { FetchProduct, OffError } from './offClient';
@@ -25,6 +25,8 @@ export interface ResolvedProduct {
   productType: Sourced<ProductType>;
   nutrition: Partial<Record<NutrientKey, Sourced<number>>>;
   ingredientsText?: Sourced<string>;
+  /** Name the user typed, for products not on Open Food Facts. */
+  name?: string;
   /** For showing amounts per serving; ratings are always per 100 g. */
   serving?: Sourced<Serving>;
 }
@@ -46,6 +48,13 @@ export async function resolveProduct(
   input: string,
   { store, fetchProduct, now = Date.now }: ResolverDeps,
 ): Promise<Resolution> {
+  if (isLocalId(input)) {
+    // A label scan with no barcode: only the user's values, never Open Food Facts.
+    const user = await store.getUserEntry(input);
+    return user
+      ? { status: 'ok', product: mergeProduct(input, undefined, user) }
+      : { status: 'not_found', barcode: input };
+  }
   const barcode = normalizeBarcode(input);
   if (!barcode) return { status: 'invalid_barcode' };
 
@@ -106,6 +115,7 @@ export function mergeProduct(barcode: string, off?: OffProduct, user?: UserEntry
       : { value: fromOff?.productType ?? 'solid', source: 'off' },
     nutrition,
     ingredientsText: ingredients,
+    ...(user?.name && { name: user.name }),
     serving: offServing
       ? { value: offServing, source: 'off' }
       : user?.serving
