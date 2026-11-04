@@ -17,10 +17,20 @@ const GLYPH: Record<Tier, { filled: string; mark: string; fallback: string }> = 
   rare: { filled: 'exclamationmark.triangle.fill', mark: 'triangle.fill', fallback: '▲' },
 };
 
-export function TierMark({ tier, size, filled }: { tier: Tier; size: number; filled?: boolean }) {
+export function TierMark({
+  tier,
+  size,
+  filled,
+  color,
+}: {
+  tier: Tier;
+  size: number;
+  filled?: boolean;
+  color?: string;
+}) {
   const t = useTheme();
   const g = GLYPH[tier];
-  const color = filled ? t.tiers[tier].ring : t.tiers[tier].fg;
+  color ??= filled ? t.tiers[tier].ring : t.tiers[tier].fg;
   return <Icon sf={filled ? g.filled : g.mark} fallback={g.fallback} color={color} size={size} />;
 }
 

@@ -416,22 +416,57 @@ describe('FindScreen', () => {
 });
 
 describe('HistoryScreen', () => {
-  test('lists recent scans with names and the score, and saved products', async () => {
+  test('rows show name, brand, score and saved mark; Saved lists bookmarks only', async () => {
+    const now = Date.now();
     await store.putCached('8901719101038', off['8901719101038'], 1);
-    await store.addScan('8901719101038', 1);
-    await store.addScan('8900000000001', 2);
-    await store.setSaved('8901719101038', true, 3);
+    await store.addScan('8901719101038', now);
+    await store.addScan('8900000000001', now - 1);
+    await store.setSaved('8901719101038', true, now);
     await renderWithQuery(<HistoryScreen />);
 
     expect(await screen.findByText('Parle - G')).toBeOnTheScreen();
-    expect(screen.getByText('Parle')).toBeOnTheScreen();
+    expect(screen.getByText('TODAY')).toBeOnTheScreen();
+    expect(
+      screen.getByLabelText(/^Parle - G, Parle, .*score 4 of 100, eat rarely, saved$/),
+    ).toBeOnTheScreen();
     expect(screen.getByText('8900000000001')).toBeOnTheScreen();
-    expect(screen.getByLabelText('Score 4 of 100, eat rarely')).toBeOnTheScreen();
-    expect(screen.getByText('Not found or not loaded')).toBeOnTheScreen();
+    expect(screen.getByText('No score')).toBeOnTheScreen();
 
     await fireEvent.press(screen.getByText('Saved'));
     expect(await screen.findByText('Parle - G')).toBeOnTheScreen();
     expect(screen.queryByText('8900000000001')).toBeNull();
+  });
+
+  test('search and tier chips narrow the list', async () => {
+    const now = Date.now();
+    await store.putCached('8901719101038', off['8901719101038'], 1);
+    await store.addScan('8901719101038', now);
+    await store.addScan('8900000000001', now - 1);
+    await renderWithQuery(<HistoryScreen />);
+
+    await fireEvent.changeText(await screen.findByLabelText('Search your scans'), 'parle');
+    expect(screen.getByText('Parle - G')).toBeOnTheScreen();
+    expect(screen.queryByText('8900000000001')).toBeNull();
+
+    await fireEvent.press(screen.getByLabelText('Show great only'));
+    expect(screen.getByText('Nothing matches “parle”.')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByLabelText('Show rarely only'));
+    expect(screen.getByText('Parle - G')).toBeOnTheScreen();
+  });
+
+  test('row actions save, then delete', async () => {
+    await store.addScan('8900000000001', Date.now());
+    await renderWithQuery(<HistoryScreen />);
+    const row = await screen.findByLabelText(/^8900000000001, /);
+
+    await fireEvent(row, 'accessibilityAction', { nativeEvent: { actionName: 'save' } });
+    expect(await screen.findByLabelText(/, saved$/)).toBeOnTheScreen();
+    expect(await store.isSaved('8900000000001')).toBe(true);
+
+    await fireEvent(screen.getByLabelText(/^8900000000001, /), 'accessibilityAction', {
+      nativeEvent: { actionName: 'delete' },
+    });
+    expect(await screen.findByText('No scans yet')).toBeOnTheScreen();
   });
 
   test('Clear all asks first, then empties the tab it is on and keeps the other', async () => {
@@ -445,9 +480,6 @@ describe('HistoryScreen', () => {
     await store.setSaved('8901719101038', true, 2);
     await renderWithQuery(<HistoryScreen />);
 
-    expect(
-      await screen.findByText('Your scanned and checked products. They stay on this device.'),
-    ).toBeOnTheScreen();
     await fireEvent.press(await screen.findByLabelText('Clear all history'));
     expect(alert.mock.calls[0][0]).toBe('Clear all history?');
     expect(await store.listScans()).toHaveLength(1); // nothing happens until confirmed
@@ -458,9 +490,6 @@ describe('HistoryScreen', () => {
     expect(await store.listSaved()).toHaveLength(1);
 
     await fireEvent.press(screen.getByText('Saved'));
-    expect(
-      await screen.findByText('Products you bookmarked. They stay on this device.'),
-    ).toBeOnTheScreen();
     await fireEvent.press(await screen.findByLabelText('Remove all saved'));
     confirm();
     expect(await screen.findByText('Nothing saved yet')).toBeOnTheScreen();
