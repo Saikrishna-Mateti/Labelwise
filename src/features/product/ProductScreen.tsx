@@ -22,7 +22,9 @@ import { RADIUS, TYPE, useTheme, type Tier } from '../../theme';
 import { HealthierOptions } from '../alternatives/HealthierOptions';
 import { wantsAlternatives } from '../alternatives/alternatives';
 import { ocrSupported } from '../entry/recognise';
-import { useProduct } from '../queries';
+import { ProfileNotice } from '../profile/ProfileNotice';
+import { profileFlags, withProfileChips, type ProfileFlags } from '../profile/flags';
+import { useProduct, useProfile } from '../queries';
 import { additivesSummary, Ingredients } from './Additives';
 import { Hero } from './Hero';
 import { NutritionRows } from './NutritionRows';
@@ -73,6 +75,7 @@ function Body({
 }) {
   const router = useRouter();
   const { data, isPending, isError, refetch, isRefetching } = useProduct(barcode);
+  const [profile] = useProfile();
 
   if (isPending) return <ResultSkeleton barcode={barcode} />;
   if (isError || !data) {
@@ -157,6 +160,7 @@ function Body({
         <>
           <Hero product={view.product} />
           {view.offError && <StaleNotice error={view.offError} />}
+          <ProfileNotice flags={profileFlags(profile, view.product.off, [])} />
           <Message
             title="Not enough data to score this"
             body={
@@ -172,7 +176,13 @@ function Body({
       );
 
     case 'scored':
-      return <Scored view={view} scroll={scroll} />;
+      return (
+        <Scored
+          view={view}
+          scroll={scroll}
+          flags={profileFlags(profile, view.product.off, view.levels)}
+        />
+      );
   }
 }
 
@@ -182,9 +192,11 @@ type SectionKey = 'nutrition' | 'ingredients' | 'processing' | 'ratings';
 function Scored({
   view,
   scroll,
+  flags,
 }: {
   view: ScoredView;
   scroll: RefObject<ScrollViewInstance | null>;
+  flags: ProfileFlags;
 }) {
   const t = useTheme();
   const detailY = useRef(0);
@@ -196,6 +208,7 @@ function Scored({
   });
   const [highlighted, setHighlighted] = useState<LevelKey>();
   const { product, scores, score } = view;
+  const chips = withProfileChips(flags.chips, view.highlights);
   const toggle = (k: SectionKey) => setOpen((o) => ({ ...o, [k]: !o[k] }));
   const reveal = (k: SectionKey) => {
     setOpen((o) => ({ ...o, [k]: true }));
@@ -218,6 +231,7 @@ function Scored({
     <>
       <Hero product={product} score={score} />
       {view.offError && <StaleNotice error={view.offError} />}
+      <ProfileNotice flags={flags} />
 
       {score ? (
         <ScoreRing {...score} reason={view.reason} />
@@ -233,9 +247,9 @@ function Scored({
         </View>
       )}
 
-      {view.highlights.length > 0 && (
+      {chips.length > 0 && (
         <View style={styles.chips}>
-          {view.highlights.map((h) => (
+          {chips.map((h) => (
             <HighlightChip
               key={h.text}
               text={h.text}

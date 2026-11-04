@@ -27,6 +27,10 @@ export const OFF_FIELDS = [
   'serving_quantity',
   'compared_to_category',
   'serving_quantity_unit',
+  'allergens_tags',
+  'traces_tags',
+  'ingredients_tags',
+  'ingredients_analysis_tags',
 ] as const;
 
 export interface OffProduct {
@@ -48,6 +52,13 @@ export interface OffProduct {
   /** "food", "beauty", "petfood" or "product" since OFF merged its databases. */
   product_type?: string;
   labels_tags?: string[];
+  /** Allergen tags (en:milk...) the pack lists, and those it may contain. */
+  allergens_tags?: string[];
+  traces_tags?: string[];
+  /** Ingredient tags with their taxonomy parents (en:onion also gives en:root-vegetable). */
+  ingredients_tags?: string[];
+  /** OFF's reading of the ingredients: en:vegan, en:non-vegetarian, en:maybe-vegan... */
+  ingredients_analysis_tags?: string[];
   image_front_small_url?: string;
   /** Printed serving size as OFF stores it: a number plus "g" or "ml". */
   serving_quantity?: number | string;
